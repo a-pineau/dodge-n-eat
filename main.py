@@ -11,8 +11,6 @@ def train():
     mean_scores = []
     game = GameAI()
     while game.running:
-        if game.agent.n_games > 100:
-            break
         # get old state
         old_state = game.agent.get_state()
         # get move (exploration or exploitation)

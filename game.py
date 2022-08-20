@@ -38,8 +38,6 @@ class GameAI:
             Block(const.WIDTH*0.75, const.HEIGHT*0.75, ENEMY_SIZE),
         ]
         self.agent = Agent(self)
-        self.food = Food(self)
-        self.distance = distance(self.agent.pos, self.food.pos)
 
     def reset(self):
         self.n_frames = 0
@@ -62,27 +60,11 @@ class GameAI:
 
     def get_reward(self) -> int:
         game_over = False
-        # positive reward if the agent gets closer to food between 2 frames
-        self.old_distance = self.distance
-        self.distance = distance(self.agent.pos, self.food.pos)
-        if self.distance < self.old_distance:
-            reward = REWARD_CLOSE
-        else:
-            reward = -REWARD_CLOSE
-        if self.n_frames > MAX_FRAME:
-            game_over = True
         # checking for failure (wall or enemy collision)
         if self.agent.wall_collision(offset=0) or self.agent.enemy_collision(offset=0):
             reward = REWARD_COLLISION
             game_over = True
-        # checking if eat:
-        if self.agent.food_collision():
-            self.n_frames = 0
-            reward = REWARD_EAT
-            self.score += 1
-            self.food.place()
         return reward, game_over
-
 
     def events(self):
         for event in pg.event.get():
