@@ -10,6 +10,7 @@ def train():
     scores = []
     mean_scores = []
     game = GameAI()
+    
     while game.running:
         # get old state
         old_state = game.agent.get_state()
@@ -18,8 +19,6 @@ def train():
         # play game and get new state
         reward, done, score = game.play_step(final_move)
         new_state = game.agent.get_state()
-        if np.any(old_state[:4]) and not np.any(new_state[:4]):
-            print("dodged")
         cummulative_reward += reward
         # train short memory
         game.agent.train_short_memory(old_state, final_move, reward, new_state, done)
