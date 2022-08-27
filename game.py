@@ -19,8 +19,8 @@ MAX_FRAME = 1500
 ENEMY_SIZE = 25
 REWARD_CLOSE = 1
 REWARD_DODGE = 5
-REWARD_EAT = 30
-REWARD_COLLISION = -100
+REWARD_EAT = 10
+REWARD_COLLISION = -10
 
 
 class GameAI:
@@ -33,15 +33,16 @@ class GameAI:
         self.n_frames = 0
         self.score = 0
         self.enemies = [
-            # Block(const.WIDTH*0.25, const.HEIGHT*0.25, ENEMY_SIZE),
-            # Block(const.WIDTH*0.75, const.HEIGHT*0.25, ENEMY_SIZE),
-            # Block(const.WIDTH*0.25, const.HEIGHT*0.75, ENEMY_SIZE),
-            # Block(const.WIDTH*0.75, const.HEIGHT*0.75, ENEMY_SIZE),
+            Block(const.WIDTH*0.25, const.HEIGHT*0.25, ENEMY_SIZE),
+            Block(const.WIDTH*0.75, const.HEIGHT*0.25, ENEMY_SIZE),
+            Block(const.WIDTH*0.25, const.HEIGHT*0.75, ENEMY_SIZE),
+            Block(const.WIDTH*0.75, const.HEIGHT*0.75, ENEMY_SIZE),
         ]
         self.agent = Agent(self)
         self.food = Food(self)
         self.distance_food = distance(self.agent.pos, self.food.pos)
-        # self.distance_enemy, self.closest_enemy = self.agent.closest_enemy()
+        self.distance_enemy, self.closest_enemy = self.agent.closest_enemy()
+        print(self.distance_enemy, self.closest_enemy)
 
     def reset(self):
         self.n_frames = 0
@@ -65,19 +66,18 @@ class GameAI:
     def get_reward(self) -> int:
         game_over = False
         reward = 0
-        # self.agent.closest_enemy()
+        self.agent.closest_enemy()
         # positive reward if the agent gets closer to food between 2 frames
-        # self.old_distance_enemy = self.distance_enemy
-        # self.old_closest_enemy = self.closest_enemy
-        # self.distance_enemy, self.closest_enemy = self.agent.closest_enemy()
-        # # if self.old_closest_enemy == self.closest_enemy:
-        # #     if self.old_distance_enemy > self.distance_enemy:
-        # #         print("HEAH")
-        # self.distance_food = distance(self.agent.pos, self.food.pos)
-        # if self.distance_enemy > self.old_distance_enemy:
-        #     pass
         self.old_distance_food = self.distance_food
+        self.old_distance_enemy = self.distance_enemy
+        self.old_closest_enemy = self.closest_enemy
+        self.distance_enemy, self.closest_enemy = self.agent.closest_enemy()
+        # if self.old_closest_enemy == self.closest_enemy:
+        #     if self.old_distance_enemy > self.distance_enemy:
+        #         print("HEAH")
         self.distance_food = distance(self.agent.pos, self.food.pos)
+        if self.distance_enemy > self.old_distance_enemy:
+            pass
         if self.distance_food < self.old_distance_food:
             reward = REWARD_CLOSE
         else:
@@ -109,14 +109,6 @@ class GameAI:
 
     def display(self):
         self.screen.fill(const.BACKGROUND)
-        for i in range(1, const.WIDTH // const.BLOCK_SIZE):
-            start_w = (i*const.BLOCK_SIZE, 0)
-            end_w = (i*const.BLOCK_SIZE, const.HEIGHT)
-            start_h = (0, i*const.BLOCK_SIZE)
-            end_h = (const.WIDTH, i*const.BLOCK_SIZE)
-            pg.draw.line(self.screen, pg.Color("White"), start_w, end_w)
-            pg.draw.line(self.screen, pg.Color("White"), start_h, end_h)
-            
         pg.draw.rect(self.screen, self.agent.color, self.agent.rect)
         pg.draw.rect(self.screen, self.food.color, self.food.rect)
         for enemy in self.enemies:
@@ -133,7 +125,7 @@ class Food(pg.sprite.Sprite):
     def __init__(self, game):
         pg.sprite.Sprite.__init__(self)
         self.game = game
-        self.size = const.BLOCK_SIZE//2
+        self.size = 15
         self.color = pg.Color("Green")
         self.pos = vec(const.WIDTH*0.85, const.HEIGHT*0.5)
         self.rect = pg.Rect(self.pos.x, self.pos.x, self.size*2, self.size*2)
@@ -141,10 +133,8 @@ class Food(pg.sprite.Sprite):
         self.place()
 
     def place(self):
-        x_offset = random.randint(1, 9)
-        y_offset = random.randint(1, 9)
-        x = x_offset*const.BLOCK_SIZE - self.size
-        y = y_offset*const.BLOCK_SIZE - self.size
+        x = random.randint(self.size, const.WIDTH - self.size)
+        y = random.randint(self.size, const.HEIGHT - self.size)
         self.pos = vec(x, y)
         self.rect = pg.Rect(self.pos.x, self.pos.x, self.size*2, self.size*2)
         self.rect.center = self.pos

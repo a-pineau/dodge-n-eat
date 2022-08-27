@@ -12,7 +12,7 @@ from helper import distance
 vec = pg.math.Vector2
 MAX_MEMORY = 100_000 # Storing 100k max items in deque
 BATCH_SIZE = 1000
-N_INPUTS = 12
+N_INPUTS = 16
 N_HIDDEN = 256
 N_OUTPUTS = 4
 LR = 0.001
@@ -24,7 +24,7 @@ class Agent(pg.sprite.Sprite):
     def __init__(self, game):
         pg.sprite.Sprite.__init__(self)
         self.game = game
-        self.size = const.BLOCK_SIZE//2
+        self.size = 15
         self.place()
         self.vel = vec(0, 0)
         self.color = pg.Color("Blue")
@@ -37,10 +37,9 @@ class Agent(pg.sprite.Sprite):
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma) 
 
     def place(self):
-        x, y = 4*const.BLOCK_SIZE - self.size, 4*const.BLOCK_SIZE - self.size
-        self.pos = vec(x, y)
+        self.pos = vec(X_AGENT, Y_AGENT)
         self.rect = pg.Rect(self.pos.x, self.pos.y, self.size*2, self.size*2)
-        self.rect.topleft = self.pos
+        self.rect.center = self.pos
         
     def closest_enemy(self):
         distances_enemies = [distance(self.pos, enemy.pos) for enemy in self.game.enemies]
@@ -49,10 +48,10 @@ class Agent(pg.sprite.Sprite):
     def wall_collision(self, offset):
         # left/right collision
         return (
-            self.rect.left - const.BLOCK_SIZE < 0 or 
-            self.rect.right + const.BLOCK_SIZE > const.WIDTH or
-            self.rect.top - const.BLOCK_SIZE < 0 or
-            self.rect.bottom + const.BLOCK_SIZE > const.HEIGHT
+            self.rect.left - offset < 0 or 
+            self.rect.right + offset > const.WIDTH or
+            self.rect.top - offset < 0 or
+            self.rect.bottom + offset > const.HEIGHT
         )
 
     def enemy_collision(self, offset, direction=None):
@@ -94,10 +93,10 @@ class Agent(pg.sprite.Sprite):
         food_is_down = self.rect.bottom < self.game.food.rect.top
 
         states = [
-            # going_right and self.enemy_collision(2*self.size, "right"),
-            # going_left and self.enemy_collision(2*self.size, "left"),
-            # going_down and self.enemy_collision(2*self.size, "down"),
-            # going_up and self.enemy_collision(2*self.size, "up"),
+            going_right and self.enemy_collision(2*self.size, "right"),
+            going_left and self.enemy_collision(2*self.size, "left"),
+            going_down and self.enemy_collision(2*self.size, "down"),
+            going_up and self.enemy_collision(2*self.size, "up"),
 
             going_right and walls_collision,
             going_left and walls_collision,

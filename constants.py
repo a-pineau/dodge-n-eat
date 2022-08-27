@@ -7,7 +7,6 @@ vec = pg.math.Vector2
 TITLE = "Vol3mon"
 WIDTH = 500
 HEIGHT = 500
-BLOCK_SIZE = 20
 FPS = 60
 
 # Directories
@@ -27,8 +26,8 @@ ORANGE = (255, 127, 0)
 BACKGROUND = (30, 30, 30)
 
 # Player
-PLAYER_X_SPEED = BLOCK_SIZE
-PLAYER_Y_SPEED = BLOCK_SIZE
+PLAYER_X_SPEED = 5
+PLAYER_Y_SPEED = 5
 
 
 
