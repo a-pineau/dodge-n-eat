@@ -1,41 +1,51 @@
-import pygame as pg
-import numpy as np
+
 from game import GameAI
 from helper import plot
 
 def train():
-    cummulative_score = 0
-    cummulative_reward = 0
+    MAX_N_GAMES = 60_000
+    sum_scores = 0
+    sum_rewards = 0
     mean_rewards = []
-    scores = []
     mean_scores = []
-    game = GameAI()
+    game = GameAI(human=True, grid=True)
     
     while game.running:
+        if game.agent.n_games > MAX_N_GAMES:
+            break
+                
         # get old state
-        old_state = game.agent.get_state()
+        state = game.agent.get_state()
         # get move (exploration or exploitation)
-        final_move = game.agent.get_action(old_state)
+        final_move = game.agent.get_action(state)
         # play game and get new state
-        reward, done, score = game.play_step(final_move)
+        reward, done, score = game.play_step(state, final_move)
         new_state = game.agent.get_state()
-        cummulative_reward += reward
+        # print("state:", new_state)
+        sum_rewards += reward
         # train short memory
-        game.agent.train_short_memory(old_state, final_move, reward, new_state, done)
+        game.agent.train_short_memory(state, final_move, reward, new_state, done)
         # remember
-        game.agent.remember(old_state, final_move, reward, new_state, done)
+        game.agent.remember(state, final_move, reward, new_state, done)
+        
+        if game.agent.reset_ok:
+            game.agent.reset_ok = False
+            game.reset2()
+            
         if done:
-            print(f"game: {game.agent.n_games} | score = {score} | reward (sum) = {cummulative_reward}")
-            cummulative_score += score
-            game.reset()
             game.agent.n_games += 1
             game.agent.train_long_memory()
-            scores.append(score)
-            mean_scores.append(cummulative_score/game.agent.n_games)
-            mean_rewards.append(cummulative_reward/game.agent.n_games)
-
+            game.reset()
+            
+            sum_scores += score            
+            mean_scores.append(sum_scores/game.agent.n_games)
+            mean_rewards.append(sum_rewards/game.agent.n_games)
+            
+        # displaying game
+        game.display(mean_scores)
+        
     # plotting
-    plot(scores, mean_scores, "results_vel_7_offset_size.png")
+    plot(mean_scores, mean_rewards, "results_4_dirs.png")
 
 
 if __name__ == "__main__":

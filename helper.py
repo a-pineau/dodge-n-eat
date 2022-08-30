@@ -1,24 +1,33 @@
-import pygame as pg
 import math
+import pygame as pg
 import matplotlib.pyplot as plt
-from IPython import display
 
-plt.ion()
-pg.init()
+def plot(mean_scores, sum_rewards, file_name):
+    # see: https://matplotlib.org/stable/gallery/subplots_axes_and_figures/two_scales.html
+    
+    _, ax1 = plt.subplots()
+    plt.title("Training...")
 
-def plot(scores, mean_scores, file_name):
-    display.clear_output(wait=True)
-    plt.clf()
-    plt.title("training...")
-    plt.xlabel("n games")
-    plt.ylabel("score")
-    plt.plot(scores, "b")
-    plt.plot(mean_scores, "r")
-    plt.ylim(ymin=0)
-    plt.text(len(scores)-1, scores[-1], str(scores[-1]))
-    plt.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
+    color = 'tab:red'
+    ax1.set_xlabel('Games')
+    ax1.set_ylabel('Mean scores', color=color)
+    ax1.plot(mean_scores, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+    value = round(mean_scores[-1], 1)
+    plt.text(len(mean_scores)-1, mean_scores[-1], str(value), color=color)
+
+    # ax2 = ax1.twinx()  
+
+    # color = 'tab:blue'
+    # ax2.set_ylabel('Sum rewards', color=color,)  
+    # ax2.plot(sum_rewards, color=color)
+    # ax2.tick_params(axis='y', labelcolor=color)
+    # value = sum_rewards[-1]
+    # plt.text(len(sum_rewards)-1, sum_rewards[-1], str(value), color=color)
+
+
     plt.savefig(file_name, bbox_inches="tight", pad_inches=0.025)
-    plt.show(block=False)
+    # plt.show()
 
 def message(screen, msg, font_size, color, position) -> None:
     """
