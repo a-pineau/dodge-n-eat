@@ -15,7 +15,7 @@ MAX_MEMORY = 100_000 # Storing 100k max items in deque
 BATCH_SIZE = 1000
 N_INPUTS = 14
 N_HIDDEN = 256
-N_OUTPUTS = 5
+N_OUTPUTS = 4
 LR = 0.001
 
 class Agent(pg.sprite.Sprite):
@@ -34,7 +34,7 @@ class Agent(pg.sprite.Sprite):
         self.n_games = 0
         self.n_exploration = 0
         self.n_exploitation = 0
-        self.epsilon = 0.25
+        self.epsilon = 0.1
         self.max_epsilon = self.epsilon
         self.min_epsilon = 0.001
         self.decay = 0.01
@@ -74,11 +74,11 @@ class Agent(pg.sprite.Sprite):
             buffer_rect.left -= const.AGENT_X_SPEED
         elif danger_direction == "right":
             buffer_rect.right += const.AGENT_X_SPEED
+        elif danger_direction == "down":
+            buffer_rect.bottom += const.AGENT_X_SPEED
         elif danger_direction == "up":
             buffer_rect.top -= const.AGENT_Y_SPEED
-        elif danger_direction == "bottom":
-            buffer_rect.bottom += const.AGENT_X_SPEED
-            
+
         for enemy in self.game.enemies:
             if buffer_rect.colliderect(enemy.rect):
                 return True    
@@ -109,9 +109,8 @@ class Agent(pg.sprite.Sprite):
                     self.pos.y = self.rect.centery
                     break
         
-        return bool(collisions_sprites)
-                    
-            
+        return bool(collisions_sprites)                    
+    
     def food_collision(self):
         return self.rect.colliderect(self.game.food.rect)
     
@@ -191,20 +190,33 @@ class Agent(pg.sprite.Sprite):
                 self.direction = "up"
                 self.pos.y += const.AGENT_Y_SPEED
         else:
-            if np.array_equal(action, [1, 0, 0, 0, 0]): # standing still
-                self.direction = "stand"
-            if np.array_equal(action, [0, 1, 0, 0, 0]): # going right
+            if np.array_equal(action, [1, 0, 0, 0]): # going right
                 self.direction = "right"
                 self.pos.x += const.AGENT_X_SPEED
-            elif np.array_equal(action, [0, 0, 1, 0, 0]): # going left
+            elif np.array_equal(action, [0, 1, 0, 0]): # going left
                 self.direction = "left"
                 self.pos.x += -const.AGENT_X_SPEED
-            elif np.array_equal(action, [0, 0, 0, 1, 0]): # going down
+            elif np.array_equal(action, [0, 0, 1, 0]): # going down
                 self.direction = "down"
                 self.pos.y += -const.AGENT_Y_SPEED
-            elif np.array_equal(action, [0, 0, 0, 0, 1]): # going up
+            elif np.array_equal(action, [0, 0, 0, 1]): # going up
                 self.direction = "up"
                 self.pos.y += const.AGENT_Y_SPEED
+                
+            # if np.array_equal(action, [1, 0, 0, 0, 0]): # standing still
+            #     self.direction = "stand"
+            # if np.array_equal(action, [0, 1, 0, 0, 0]): # going right
+            #     self.direction = "right"
+            #     self.pos.x += const.AGENT_X_SPEED
+            # elif np.array_equal(action, [0, 0, 1, 0, 0]): # going left
+            #     self.direction = "left"
+            #     self.pos.x += -const.AGENT_X_SPEED
+            # elif np.array_equal(action, [0, 0, 0, 1, 0]): # going down
+            #     self.direction = "down"
+            #     self.pos.y += -const.AGENT_Y_SPEED
+            # elif np.array_equal(action, [0, 0, 0, 0, 1]): # going up
+            #     self.direction = "up"
+            #     self.pos.y += const.AGENT_Y_SPEED
             
         # Updating pos
         # self.pos += self.vel

@@ -16,8 +16,10 @@ n_snap = 0
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50, 50)
 
 MAX_FRAME = 1_000
-REWARD_CLOSE = 1
-REWARD_EAT = 10
+REWARD_WANDER = -1
+REWARD_CLOSE_WALL = 5
+REWARD_CLOSE_FOOD = 5
+REWARD_EAT = 100
 REWARD_COLLISION = -10
 
 
@@ -42,17 +44,29 @@ class GameAI:
             # Block(10*const.BLOCK_SIZE, 10*const.BLOCK_SIZE, const.BLOCK_SIZE*2),
             # Block(6*const.BLOCK_SIZE, 6*const.BLOCK_SIZE, const.BLOCK_SIZE*3),
             # Block(6*const.BLOCK_SIZE, 6*const.BLOCK_SIZE, const.BLOCK_SIZE*3),
-            Block(8*const.BLOCK_SIZE, 2*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 3*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 4*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 5*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 6*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 7*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 8*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 9*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 10*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 11*const.BLOCK_SIZE, const.BLOCK_SIZE),
-            Block(8*const.BLOCK_SIZE, 12*const.BLOCK_SIZE, const.BLOCK_SIZE),
+            # Block(8*const.BLOCK_SIZE, 2*const.BLOCK_SIZE, const.BLOCK_SIZE),
+            Block(8*const.BLOCK_SIZE, 3*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 4*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 5*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 6*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 7*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 8*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 9*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 10*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            Block(8*const.BLOCK_SIZE, 11*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red")),
+            # Block(8*const.BLOCK_SIZE, 12*const.BLOCK_SIZE, const.BLOCK_SIZE),
+        ]
+        
+        self.neighbours = [
+            Block2(9*const.BLOCK_SIZE, 3*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 4*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 5*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 6*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 7*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 8*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 9*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 10*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            Block2(9*const.BLOCK_SIZE, 11*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
         ]
         self.agent = Agent(self)
         self.food = Food(self)
@@ -63,51 +77,57 @@ class GameAI:
         self.score = 0
         self.agent.place()
         self.food.place()
+        for neighbour in self.neighbours:
+            neighbour.tagged = False
         
     def reset2(self):
         self.n_frames_threshold = 0 
         self.agent.place()
         self.food.place()
+        for neighbour in self.neighbours:
+            neighbour.tagged = False
         
-    def play_step(self, action):
+    def play_step(self, state, action):
         self.n_frames += 1
         self.n_frames_threshold += 1
         
-        # events handler
         self.events()
-        
-        # updating position
         self.agent.update(action)
-        
-        # getting reward
-        reward, game_over = self.get_reward()
             
         # returning corresponding values
+        reward, game_over = self.get_reward(state)
         return reward, game_over, self.score
 
-    def get_reward(self) -> tuple:
+    def get_reward(self, state) -> tuple:
         game_over = False
         reward = 1
         
-        # positive reward if the agent gets closer to food between 2 frames
+        # stops episode if the agent does nothing but wonder around
+        if self.n_frames_threshold > MAX_FRAME:
+            return REWARD_WANDER, True
+        
+        # checking for failure (wall or enemy collision)
+        if (self.agent.wall_collision(offset=0)
+                or self.agent.enemy_collision()):
+            return REWARD_COLLISION, True
+            
+        # checking if agent is getting closer to food
         self.old_distance_food = self.distance_food
         self.distance_food = distance(self.agent.pos, self.food.pos)
         if self.distance_food < self.old_distance_food:
-            reward = REWARD_CLOSE
+            reward = REWARD_CLOSE_FOOD
         else:
-            reward = -REWARD_CLOSE
-            
-        # stops episode if the agent doesn't fail/eat
-        if self.n_frames_threshold > MAX_FRAME:
-            game_over = True
-            
-        # checking for failure (wall or enemy collision)
-        if self.agent.wall_collision(offset=0):
-            reward = REWARD_COLLISION
-            game_over = True
-        if self.agent.enemy_collision():
-            reward = REWARD_COLLISION
+            reward = -REWARD_CLOSE_FOOD
 
+        # tag???
+        collisions_sprites = pg.sprite.spritecollide(self.agent, self.neighbours, False)
+        if collisions_sprites:
+            if not collisions_sprites[0].tagged:
+                collisions_sprites[0].tagged = True
+                reward = 1
+            else:
+                reward = -5
+            
         # checking if eat:
         if self.agent.food_collision():
             self.n_frames_threshold = 0
@@ -129,10 +149,13 @@ class GameAI:
         self.screen.fill(const.BACKGROUND_COLOR)
         
         # Drawing blocks
+        for enemy, neighbour in zip(self.enemies, self.neighbours):
+            pg.draw.rect(self.screen, enemy.color, enemy.rect)
+            neighbour.color = pg.Color("Yellow") if neighbour.tagged else pg.Color("Purple")
+            pg.draw.rect(self.screen, neighbour.color, neighbour.rect)
+            
         pg.draw.rect(self.screen, self.agent.color, self.agent.rect)
         pg.draw.rect(self.screen, self.food.color, self.food.rect)
-        for enemy in self.enemies:
-            pg.draw.rect(self.screen, enemy.color, enemy.rect)
         
         # Drawing grid
         if self.grid:
@@ -201,8 +224,8 @@ class Food(pg.sprite.Sprite):
 
         # x = idx_x*const.BLOCK_SIZE
         # y = idx_y*const.BLOCK_SIZE
-        x = 4*const.BLOCK_SIZE
-        y = 8*const.BLOCK_SIZE
+        x = 7*const.BLOCK_SIZE
+        y = 7*const.BLOCK_SIZE
         
         self.pos = vec(x, y)
         self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
@@ -217,9 +240,18 @@ class Food(pg.sprite.Sprite):
 
 
 class Block(pg.sprite.Sprite):
-    def __init__(self, x, y, size) -> None:
+    def __init__(self, x, y, size, color) -> None:
         pg.sprite.Sprite.__init__(self)
         self.size = size
-        self.color = pg.Color("Red")
+        self.color = color
         self.pos = vec(x, y)
         self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
+        
+class Block2(pg.sprite.Sprite):
+    def __init__(self, x, y, size, color) -> None:
+        pg.sprite.Sprite.__init__(self)
+        self.size = size
+        self.color = color
+        self.pos = vec(x, y)
+        self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
+        self.tagged = False

@@ -8,7 +8,7 @@ def train():
     sum_rewards = 0
     mean_rewards = []
     mean_scores = []
-    game = GameAI(human=True, grid=True)
+    game = GameAI(human=False, grid=True)
     
     while game.running:
         if game.agent.n_games > MAX_N_GAMES:
