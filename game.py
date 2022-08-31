@@ -124,7 +124,7 @@ class GameAI:
                 collisions_sprites[0].tagged = True
                 reward = 2
             else:
-                reward = -5
+                reward = -2
             
         # checking if eat:
         if self.agent.food_collision():
