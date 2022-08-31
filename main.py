@@ -21,7 +21,6 @@ def train():
         # play game and get new state
         reward, done, score = game.play_step(state, final_move)
         new_state = game.agent.get_state()
-        # print("state:", new_state)
         sum_rewards += reward
         # train short memory
         game.agent.train_short_memory(state, final_move, reward, new_state, done)
@@ -33,6 +32,7 @@ def train():
             game.reset2()
             
         if done:
+            print(f"DONE! Last decision was: {game.agent.last_decision}")
             game.agent.n_games += 1
             game.agent.train_long_memory()
             game.reset()

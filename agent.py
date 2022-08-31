@@ -28,13 +28,14 @@ class Agent(pg.sprite.Sprite):
         self.vel = vec(0, 0)
         self.direction = None
         self.reset_ok = False
+        self.last_decision = None
         self.color = pg.Color("Blue")
         
         # DQN
         self.n_games = 0
         self.n_exploration = 0
         self.n_exploitation = 0
-        self.epsilon = 0.1
+        self.epsilon = 0.3
         self.max_epsilon = self.epsilon
         self.min_epsilon = 0.001
         self.decay = 0.01
@@ -82,34 +83,7 @@ class Agent(pg.sprite.Sprite):
         for enemy in self.game.enemies:
             if buffer_rect.colliderect(enemy.rect):
                 return True    
-        return False
-    
-    def enemy_collision(self):
-        collisions_sprites = pg.sprite.spritecollide(self, self.game.enemies, False)
-        
-        if collisions_sprites:
-            for sprite in collisions_sprites:
-                if self.direction == "right" and self.rect.right >= sprite.rect.left:
-                    self.rect.right = sprite.rect.left
-                    self.pos.x = self.rect.centerx
-                    break
-                # Left 
-                if self.direction == "left" and self.rect.left <= sprite.rect.right:
-                    self.rect.left = sprite.rect.right
-                    self.pos.x = self.rect.centerx
-                    break
-                # Bottom 
-                if self.direction == "up" and self.rect.bottom >= sprite.rect.top:
-                    self.rect.bottom = sprite.rect.top
-                    self.pos.y = self.rect.centery
-                    break
-                # Top
-                if self.direction == "down" and self.rect.top <= sprite.rect.bottom:
-                    self.rect.top = sprite.rect.bottom
-                    self.pos.y = self.rect.centery
-                    break
-        
-        return bool(collisions_sprites)                    
+        return False                    
     
     def food_collision(self):
         return self.rect.colliderect(self.game.food.rect)
@@ -142,9 +116,11 @@ class Agent(pg.sprite.Sprite):
         rand_number = np.random.rand()
         
         if rand_number <= self.epsilon:
+            self.last_decision = "Exploration"
             self.n_exploration += 1
             move = random.randint(0, N_OUTPUTS-1)
         else:
+            self.last_decision = "Exploitation"
             self.n_exploitation += 1
             state_0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state_0)
@@ -184,10 +160,10 @@ class Agent(pg.sprite.Sprite):
                 self.direction = "left"
                 self.pos.x += -const.AGENT_X_SPEED
             elif keys[pg.K_UP]:
-                self.direction = "down"
+                self.direction = "up"
                 self.pos.y += -const.AGENT_Y_SPEED
             elif keys[pg.K_DOWN]:
-                self.direction = "up"
+                self.direction = "down"
                 self.pos.y += const.AGENT_Y_SPEED
         else:
             if np.array_equal(action, [1, 0, 0, 0]): # going right
@@ -197,10 +173,10 @@ class Agent(pg.sprite.Sprite):
                 self.direction = "left"
                 self.pos.x += -const.AGENT_X_SPEED
             elif np.array_equal(action, [0, 0, 1, 0]): # going down
-                self.direction = "down"
+                self.direction = "up"
                 self.pos.y += -const.AGENT_Y_SPEED
             elif np.array_equal(action, [0, 0, 0, 1]): # going up
-                self.direction = "up"
+                self.direction = "down"
                 self.pos.y += const.AGENT_Y_SPEED
                 
             # if np.array_equal(action, [1, 0, 0, 0, 0]): # standing still

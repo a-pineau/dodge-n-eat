@@ -15,11 +15,11 @@ n_snap = 0
 # Manually places the window
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50, 50)
 
-MAX_FRAME = 1_000
+MAX_FRAME = 500
 REWARD_WANDER = -1
 REWARD_CLOSE_WALL = 5
-REWARD_CLOSE_FOOD = 5
-REWARD_EAT = 100
+REWARD_CLOSE_FOOD = 1
+REWARD_EAT = 10
 REWARD_COLLISION = -10
 
 
@@ -88,7 +88,6 @@ class GameAI:
             neighbour.tagged = False
         
     def play_step(self, state, action):
-        self.n_frames += 1
         self.n_frames_threshold += 1
         
         self.events()
@@ -100,15 +99,14 @@ class GameAI:
 
     def get_reward(self, state) -> tuple:
         game_over = False
-        reward = 1
-        
+        reward = 0
+
         # stops episode if the agent does nothing but wonder around
         if self.n_frames_threshold > MAX_FRAME:
             return REWARD_WANDER, True
         
         # checking for failure (wall or enemy collision)
-        if (self.agent.wall_collision(offset=0)
-                or self.agent.enemy_collision()):
+        if self.agent.wall_collision(offset=0) or self.agent.enemy_collision():
             return REWARD_COLLISION, True
             
         # checking if agent is getting closer to food
@@ -124,16 +122,14 @@ class GameAI:
         if collisions_sprites:
             if not collisions_sprites[0].tagged:
                 collisions_sprites[0].tagged = True
-                reward = 1
+                reward = 2
             else:
                 reward = -5
             
         # checking if eat:
         if self.agent.food_collision():
-            self.n_frames_threshold = 0
             reward = REWARD_EAT
             self.score += 1
-            # self.food.place()
             self.agent.reset_ok = True
 
         return reward, game_over
