@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 def plot(mean_scores, sum_rewards, file_name):
     # see: https://matplotlib.org/stable/gallery/subplots_axes_and_figures/two_scales.html
     
+    #1
     _, ax1 = plt.subplots()
     plt.title("Training...")
 
@@ -16,16 +17,17 @@ def plot(mean_scores, sum_rewards, file_name):
     value = round(mean_scores[-1], 1)
     plt.text(len(mean_scores)-1, mean_scores[-1], str(value), color=color)
 
-    # ax2 = ax1.twinx()  
+    #2
+    ax2 = ax1.twinx()  
 
-    # color = 'tab:blue'
-    # ax2.set_ylabel('Sum rewards', color=color,)  
-    # ax2.plot(sum_rewards, color=color)
-    # ax2.tick_params(axis='y', labelcolor=color)
-    # value = sum_rewards[-1]
-    # plt.text(len(sum_rewards)-1, sum_rewards[-1], str(value), color=color)
+    color = 'tab:blue'
+    ax2.set_ylabel('Sum rewards', color=color,)  
+    ax2.plot(sum_rewards, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+    value = sum_rewards[-1]
+    plt.text(len(sum_rewards)-1, sum_rewards[-1], str(value), color=color)
 
-
+    # plot/saving
     plt.savefig(file_name, bbox_inches="tight", pad_inches=0.025)
     # plt.show()
 

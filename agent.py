@@ -1,4 +1,3 @@
-import math
 import torch
 import random
 import pygame as pg
@@ -13,10 +12,11 @@ vec = pg.math.Vector2
 
 MAX_MEMORY = 100_000 # Storing 100k max items in deque
 BATCH_SIZE = 1000
-N_INPUTS = 14
+N_INPUTS = 10
 N_HIDDEN = 256
 N_OUTPUTS = 4
 LR = 0.001
+
 
 class Agent(pg.sprite.Sprite):
     # -----------
@@ -24,12 +24,11 @@ class Agent(pg.sprite.Sprite):
         pg.sprite.Sprite.__init__(self)
         self.game = game
         self.size = const.BLOCK_SIZE
-        self.place()
         self.vel = vec(0, 0)
         self.direction = None
         self.reset_ok = False
-        self.last_decision = None
         self.color = pg.Color("Blue")
+        self.place()
         
         # DQN
         self.n_games = 0
@@ -45,6 +44,8 @@ class Agent(pg.sprite.Sprite):
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma) 
 
     def place(self):
+        self.dangerous_locations = set()
+
         x = 13*const.BLOCK_SIZE - self.size//2
         y = 8*const.BLOCK_SIZE - self.size//2
         
@@ -66,32 +67,25 @@ class Agent(pg.sprite.Sprite):
     def enemy_collision(self):
         # If the agent is already colliding with an enemy, returns True directly
         if pg.sprite.spritecollide(self, self.game.enemies, False):
-            return True
-        
-    def enemy_danger(self, danger_direction):
-        buffer_rect = self.rect.copy()
-        
-        if danger_direction == "left":
-            buffer_rect.left -= const.AGENT_X_SPEED
-        elif danger_direction == "right":
-            buffer_rect.right += const.AGENT_X_SPEED
-        elif danger_direction == "down":
-            buffer_rect.bottom += const.AGENT_X_SPEED
-        elif danger_direction == "up":
-            buffer_rect.top -= const.AGENT_Y_SPEED
-
-        for enemy in self.game.enemies:
-            if buffer_rect.colliderect(enemy.rect):
-                return True    
-        return False                    
+            return True     
     
+    def enemy_danger(self):
+        offsets = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+        
+        for enemy in self.game.enemies:
+            for offset in offsets:
+                buffer_rect = self.rect.copy().move(offset)
+                if buffer_rect.colliderect(enemy.rect):
+                    return True
+                
+        return False
+            
     def food_collision(self):
         return self.rect.colliderect(self.game.food.rect)
     
     def get_state(self) -> np.array:     
         return np.array([
             # current direction
-            self.direction == "stand",
             self.direction == "right",
             self.direction == "left",
             self.direction == "down",
@@ -104,23 +98,17 @@ class Agent(pg.sprite.Sprite):
             self.rect.top >= self.game.food.rect.bottom, # food is up
             
             # dangers
-            self.enemy_danger("right"),
-            self.enemy_danger("left"),
-            self.enemy_danger("down"),
-            self.enemy_danger("up"),
-            self.wall_collision(offset=const.BLOCK_SIZE)], dtype=int
-        )    
+            self.enemy_danger(),
+            self.wall_collision(offset=const.BLOCK_SIZE)], dtype=int)    
 
     def get_action(self, state):
         final_move = [0]*N_OUTPUTS
         rand_number = np.random.rand()
         
         if rand_number <= self.epsilon:
-            self.last_decision = "Exploration"
             self.n_exploration += 1
-            move = random.randint(0, N_OUTPUTS-1)
+            move = np.random.randint(0, N_OUTPUTS)
         else:
-            self.last_decision = "Exploitation"
             self.n_exploitation += 1
             state_0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state_0)

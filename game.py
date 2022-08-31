@@ -1,7 +1,6 @@
 """Implements the game loop and handles the user's events."""
 
 import os
-import random
 import pygame as pg
 
 from itertools import cycle
@@ -58,15 +57,15 @@ class GameAI:
         ]
         
         self.neighbours = [
-            Block2(9*const.BLOCK_SIZE, 3*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 4*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 5*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 6*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 7*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 8*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 9*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 10*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
-            Block2(9*const.BLOCK_SIZE, 11*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 3*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 4*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 5*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 6*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 7*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 8*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 9*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 10*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
+            # Block2(9*const.BLOCK_SIZE, 11*const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Purple")),
         ]
         self.agent = Agent(self)
         self.food = Food(self)
@@ -117,11 +116,10 @@ class GameAI:
         else:
             reward = -REWARD_CLOSE_FOOD
 
-        # tag???
-        collisions_sprites = pg.sprite.spritecollide(self.agent, self.neighbours, False)
-        if collisions_sprites:
-            if not collisions_sprites[0].tagged:
-                collisions_sprites[0].tagged = True
+        # checking for any enemy nearby and tag its location as dangerous
+        if self.agent.enemy_danger():
+            if self.agent.rect.center not in self.agent.dangerous_locations:
+                self.agent.dangerous_locations.add(self.agent.rect.center)
                 reward = 2
             else:
                 reward = -2
@@ -145,10 +143,8 @@ class GameAI:
         self.screen.fill(const.BACKGROUND_COLOR)
         
         # Drawing blocks
-        for enemy, neighbour in zip(self.enemies, self.neighbours):
+        for enemy in self.enemies:
             pg.draw.rect(self.screen, enemy.color, enemy.rect)
-            neighbour.color = pg.Color("Yellow") if neighbour.tagged else pg.Color("Purple")
-            pg.draw.rect(self.screen, neighbour.color, neighbour.rect)
             
         pg.draw.rect(self.screen, self.agent.color, self.agent.rect)
         pg.draw.rect(self.screen, self.food.color, self.food.rect)

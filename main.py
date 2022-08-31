@@ -1,4 +1,3 @@
-
 from game import GameAI
 from helper import plot
 
@@ -32,7 +31,6 @@ def train():
             game.reset2()
             
         if done:
-            print(f"DONE! Last decision was: {game.agent.last_decision}")
             game.agent.n_games += 1
             game.agent.train_long_memory()
             game.reset()
@@ -45,7 +43,7 @@ def train():
         game.display(mean_scores)
         
     # plotting
-    plot(mean_scores, mean_rewards, "results_4_dirs.png")
+    plot(mean_scores, mean_rewards, "results.png")
 
 
 if __name__ == "__main__":
