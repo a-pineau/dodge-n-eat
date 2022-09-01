@@ -4,6 +4,12 @@ import torch.optim as optim
 import torch.nn.functional as F
 import os
 
+torch.manual_seed(5)
+if torch.cuda.is_available(): 
+    torch.cuda.manual_seed_all(5)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 class Linear_QNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super().__init__()
@@ -47,17 +53,16 @@ class QTrainer:
             done = (done, )
 
         # 1: predicted Q values with current state
+        # 2: Q_new = r + y * max(next_predicted Q value) -> only do this if not done
         pred = self.model(state)
         target = pred.clone()
+        
         for idx in range(len(done)):
             Q_new = reward[idx]
             if not done[idx]:
                 Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx]))
             target[idx][torch.argmax(action[idx]).item()] = Q_new
 
-        # 2: Q_new = r + y * max(next_predicted Q value) -> only do this if not done
-        # pred.clone()
-        # preds[argmax(action)] = Q_new
         self.optimizer.zero_grad()
         loss = self.criterion(target, pred)
         loss.backward()

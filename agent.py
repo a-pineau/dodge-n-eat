@@ -16,16 +16,20 @@ N_INPUTS = 10
 N_HIDDEN = 256
 N_OUTPUTS = 4
 LR = 0.001
+DECAY = True
 
 
 class Agent(pg.sprite.Sprite):
     # -----------
-    def __init__(self, game):
+    def __init__(self, game, epsilon_decay=DECAY):
         pg.sprite.Sprite.__init__(self)
         self.game = game
+        self.epsilon_decay = epsilon_decay
         self.size = const.BLOCK_SIZE
         self.vel = vec(0, 0)
         self.direction = None
+        self.decision = None
+        self.last_decision = None
         self.reset_ok = False
         self.color = pg.Color("Blue")
         self.place()
@@ -40,7 +44,11 @@ class Agent(pg.sprite.Sprite):
         self.decay = 0.01
         self.gamma = 0.9
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = Linear_QNet(input_size=N_INPUTS, hidden_size=N_HIDDEN, output_size=N_OUTPUTS)
+        self.model = Linear_QNet(
+            input_size=N_INPUTS, 
+            hidden_size=N_HIDDEN, 
+            output_size=N_OUTPUTS
+        )
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma) 
 
     def place(self):
@@ -70,7 +78,9 @@ class Agent(pg.sprite.Sprite):
             return True     
     
     def enemy_danger(self):
-        offsets = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+        offsets = [(-1, -1), (0, -1), (1, -1), 
+                   (-1, 0), (1, 0),
+                   (-1, 1), (0, -1), (1, 1)]
         
         for enemy in self.game.enemies:
             for offset in offsets:
@@ -103,20 +113,24 @@ class Agent(pg.sprite.Sprite):
 
     def get_action(self, state):
         final_move = [0]*N_OUTPUTS
-        rand_number = np.random.rand()
+        random_number = random.random()
         
-        if rand_number <= self.epsilon:
+        if random_number <= self.epsilon:
+            self.decision = "Exploration"
             self.n_exploration += 1
-            move = np.random.randint(0, N_OUTPUTS)
+            move = random.randint(0, N_OUTPUTS-1)
         else:
+            self.decision = "Exploitation"
             self.n_exploitation += 1
             state_0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state_0)
             move = torch.argmax(prediction).item() # returns index of max value
                 
         final_move[move] = 1
-        self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) \
-                       * np.exp(-self.decay * self.n_games)
+        if self.epsilon_decay:
+            self.epsilon = (
+                self.min_epsilon + (self.max_epsilon - self.min_epsilon) \
+                * np.exp(-self.decay * self.n_games))
             
         return final_move
 

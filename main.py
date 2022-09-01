@@ -1,13 +1,17 @@
 from game import GameAI
 from helper import plot
 
+MAX_N_GAMES = 60_000
+
+
 def train():
-    MAX_N_GAMES = 60_000
     sum_scores = 0
     sum_rewards = 0
+    highest_score = 0
     mean_rewards = []
     mean_scores = []
     game = GameAI(human=False, grid=True)
+    game.set_global_seed(5)
     
     while game.running:
         if game.agent.n_games > MAX_N_GAMES:
@@ -27,6 +31,7 @@ def train():
         game.agent.remember(state, final_move, reward, new_state, done)
         
         if done:
+            game.agent.last_decision = game.agent.decision
             game.agent.n_games += 1
             game.agent.train_long_memory()
             game.reset()
@@ -39,7 +44,7 @@ def train():
         game.display(mean_scores)
         
     # plotting
-    plot(mean_scores, mean_rewards, "results_single.png")
+    plot(mean_scores, mean_rewards, "results.png")
 
 
 if __name__ == "__main__":
