@@ -8,7 +8,7 @@ TITLE = "dodge-N-eat"
 WIDTH = 600
 HEIGHT = 600
 BLOCK_SIZE = 40
-FPS = 30
+FPS = 60
 
 # Directories
 FILE_DIR = os.path.dirname(__file__)
@@ -21,8 +21,8 @@ BACKGROUND_COLOR = (30, 30, 30)
 INFOS_COLOR = (255, 255, 255)
 
 # Agent
-AGENT_X_SPEED = BLOCK_SIZE
-AGENT_Y_SPEED = BLOCK_SIZE
+AGENT_X_SPEED = BLOCK_SIZE//2
+AGENT_Y_SPEED = BLOCK_SIZE//2
 
 # Miscs
 INFOS_SIZE = 20

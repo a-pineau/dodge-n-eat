@@ -18,7 +18,7 @@ def train():
         # get move (exploration or exploitation)
         final_move = game.agent.get_action(state)
         # play game and get new state
-        reward, done, score = game.play_step(state, final_move)
+        reward, done, score = game.play_step(final_move)
         new_state = game.agent.get_state()
         sum_rewards += reward
         # train short memory
@@ -26,10 +26,6 @@ def train():
         # remember
         game.agent.remember(state, final_move, reward, new_state, done)
         
-        if game.agent.reset_ok:
-            game.agent.reset_ok = False
-            game.reset2()
-            
         if done:
             game.agent.n_games += 1
             game.agent.train_long_memory()
@@ -43,7 +39,7 @@ def train():
         game.display(mean_scores)
         
     # plotting
-    plot(mean_scores, mean_rewards, "results.png")
+    plot(mean_scores, mean_rewards, "results_single.png")
 
 
 if __name__ == "__main__":
