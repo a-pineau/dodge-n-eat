@@ -47,7 +47,7 @@ class GameAI:
 
         self.enemies = [
             Enemy(const.WIDTH // 2, const.HEIGHT // 2, 
-                  const.BLOCK_SIZE * 6, const.BLOCK_SIZE * 6)
+                  const.BLOCK_SIZE * 7, const.BLOCK_SIZE * 7)
         ]
 
         self.agent = Agent(self)
