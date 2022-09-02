@@ -3,10 +3,12 @@ import pygame as pg
 
 vec = pg.math.Vector2
 
-# Main window 
+# Main window
 TITLE = "dodge-N-eat"
-WIDTH = 600
-HEIGHT = 600
+INFO_WIDTH = 300
+INFO_HEIGHT = 600
+PLAY_WIDTH = INFO_WIDTH + 800
+PLAY_HEIGHT = INFO_HEIGHT
 BLOCK_SIZE = 40
 FPS = 60
 
@@ -21,13 +23,9 @@ BACKGROUND_COLOR = (30, 30, 30)
 INFOS_COLOR = (255, 255, 255)
 
 # Agent
-AGENT_X_SPEED = BLOCK_SIZE//2
-AGENT_Y_SPEED = BLOCK_SIZE//2
+AGENT_X_SPEED = BLOCK_SIZE // 2
+AGENT_Y_SPEED = BLOCK_SIZE // 2
 
 # Miscs
 INFOS_SIZE = 20
 Y_OFFSET_INFOS = 25
-
-
-
-

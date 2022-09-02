@@ -11,12 +11,11 @@ def train():
     mean_rewards = []
     mean_scores = []
     game = GameAI(human=False, grid=True)
-    game.set_global_seed(5)
-    
+
     while game.running:
         if game.agent.n_games > MAX_N_GAMES:
             break
-                
+
         # get old state
         state = game.agent.get_state()
         # get move (exploration or exploitation)
@@ -29,20 +28,20 @@ def train():
         game.agent.train_short_memory(state, final_move, reward, new_state, done)
         # remember
         game.agent.remember(state, final_move, reward, new_state, done)
-        
+
         if done:
             game.agent.last_decision = game.agent.decision
             game.agent.n_games += 1
             game.agent.train_long_memory()
             game.reset()
-            
-            sum_scores += score            
-            mean_scores.append(sum_scores/game.agent.n_games)
-            mean_rewards.append(sum_rewards/game.agent.n_games)
-            
+
+            sum_scores += score
+            mean_scores.append(sum_scores / game.agent.n_games)
+            mean_rewards.append(sum_rewards / game.agent.n_games)
+
         # displaying game
         game.display(mean_scores)
-        
+
     # plotting
     plot(mean_scores, mean_rewards, "results.png")
 

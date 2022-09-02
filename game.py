@@ -11,11 +11,12 @@ from agent import Agent
 from obstacle import Obstacle
 from helper import message, distance
 import constants as const
+
 vec = pg.math.Vector2
 n_snap = 0
 
 # Manually places the window
-os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (50, 50)
+os.environ["SDL_VIDEO_WINDOW_POS"] = "%d,%d" % (50, 50)
 
 MAX_FRAME = 250
 
@@ -33,27 +34,37 @@ class GameAI:
         pg.init()
         self.human = human
         self.grid = grid
-        self.screen = pg.display.set_mode([const.WIDTH, const.HEIGHT])
+        self.screen = pg.display.set_mode([const.PLAY_WIDTH, const.PLAY_HEIGHT])
         self.clock = pg.time.Clock()
 
         pg.display.set_caption(const.TITLE)
 
         self.running = True
-        self.n_frames = 0
         self.n_frames_threshold = 0
         self.score = 0
         self.highest_score = 0
         self.reward_episode = 0
+        self.info_area = Block(
+            const.INFO_WIDTH // 2,
+            const.INFO_HEIGHT // 2,
+            const.INFO_WIDTH,
+            const.INFO_HEIGHT,
+            const.BACKGROUND_COLOR,
+        )
 
         self.enemies = [
-            Enemy(const.WIDTH // 2, const.HEIGHT // 2, 
-                  const.BLOCK_SIZE * 7, const.BLOCK_SIZE * 7)
+            Block(
+                (const.INFO_WIDTH + const.PLAY_WIDTH) / 3,
+                const.PLAY_HEIGHT // 2,
+                const.BLOCK_SIZE * 1,
+                const.BLOCK_SIZE * 11,
+            ),
         ]
 
         self.agent = Agent(self)
         self.food = Food(self)
         self.distance_food = distance(self.agent.pos, self.food.pos)
-    
+
     @staticmethod
     def set_global_seed(seed: int) -> None:
         """
@@ -70,14 +81,14 @@ class GameAI:
             pass
         else:
             torch.manual_seed(seed)
-            if torch.cuda.is_available(): 
+            if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
         random.seed(seed)
-        np.random.seed(seed) 
-        
+        np.random.seed(seed)
+
     def reset(self):
         self.n_frames_threshold = 0
         self.score = 0
@@ -152,19 +163,21 @@ class GameAI:
 
         # Drawing grid
         if self.grid:
-            for i in range(1, const.WIDTH // const.BLOCK_SIZE):
+            for i in range(1, const.PLAY_WIDTH // const.BLOCK_SIZE):
                 # horizontal lines
-                start_h = const.BLOCK_SIZE * i, 0
-                end_h = const.BLOCK_SIZE * i, const.HEIGHT
-                
+                start_h = const.INFO_WIDTH + const.BLOCK_SIZE * i, 0
+                end_h = const.INFO_WIDTH + const.BLOCK_SIZE * i, const.PLAY_HEIGHT
+
                 # vertical lines
                 start_v = 0, const.BLOCK_SIZE * i
-                end_v = const.WIDTH, const.BLOCK_SIZE * i
+                end_v = const.PLAY_WIDTH, const.BLOCK_SIZE * i
 
                 pg.draw.line(self.screen, const.GRID_COLOR, start_h, end_h)
                 pg.draw.line(self.screen, const.GRID_COLOR, start_v, end_v)
 
         # Infos texts
+        self.info_area.draw(self.screen)
+
         if self.score > self.highest_score:
             self.highest_score = self.score
 
@@ -176,11 +189,13 @@ class GameAI:
         perc_exploration = (
             self.agent.n_exploration
             / (self.agent.n_exploration + self.agent.n_exploitation)
-            * 100)
+            * 100
+        )
         perc_exploitation = (
             self.agent.n_exploitation
             / (self.agent.n_exploration + self.agent.n_exploitation)
-            * 100)
+            * 100
+        )
         perc_threshold = int((self.n_frames_threshold / MAX_FRAME) * 100)
 
         infos = [
@@ -189,6 +204,7 @@ class GameAI:
             f"Score: {self.score}",
             f"Highest score: {self.highest_score}",
             f"Mean score: {mean_score}",
+            f"Initial Epsilon: {self.agent.max_epsilon}",
             f"Epsilon: {round(self.agent.epsilon, 4)}",
             f"Exploration: {round(perc_exploration, 3)}%",
             f"Exploitation: {round(perc_exploitation, 3)}%",
@@ -205,8 +221,16 @@ class GameAI:
                 info,
                 const.INFOS_SIZE,
                 const.INFOS_COLOR,
-                (5, 5 + i * const.Y_OFFSET_INFOS)
+                (5, 5 + i * const.Y_OFFSET_INFOS),
             )
+
+        # sep line
+        pg.draw.line(
+            self.screen,
+            pg.Color("White"),
+            (const.INFO_WIDTH, 0),
+            (const.INFO_WIDTH, const.INFO_HEIGHT),
+        )
 
         pg.display.flip()
         self.clock.tick(const.FPS)
@@ -221,17 +245,18 @@ class Food(pg.sprite.Sprite):
         self.place()
 
     def place(self):
-        idx_x = random.randint(1, (const.WIDTH // const.BLOCK_SIZE) - 1)
-        idx_y = random.randint(1, (const.HEIGHT // const.BLOCK_SIZE) - 1)
-        x = idx_x * const.BLOCK_SIZE
+        idx_x = random.randint(
+            1, ((const.PLAY_WIDTH - const.INFO_WIDTH) // const.BLOCK_SIZE) - 1
+        )
+        idx_y = random.randint(1, (const.PLAY_HEIGHT // const.BLOCK_SIZE) - 1)
+        x = const.INFO_WIDTH + idx_x * const.BLOCK_SIZE
         y = idx_y * const.BLOCK_SIZE
 
         self.pos = vec(x, y)
         self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
 
         # Checking for potential collisions with other elements
-        obstacles = [enemy.rect for enemy in self.game.enemies] + \
-            [self.game.agent.rect]
+        obstacles = [enemy.rect for enemy in self.game.enemies] + [self.game.agent.rect]
         collision_list = self.rect.collidelist(obstacles)
 
         # -1 is the return default value given by Pygame for the collidelist method if no collision found
@@ -239,17 +264,16 @@ class Food(pg.sprite.Sprite):
             self.place()
 
 
-class Enemy(pg.sprite.Sprite):
+class Block(pg.sprite.Sprite):
     def __init__(self, x, y, w, h, color=pg.Color("Red")):
         pg.sprite.Sprite.__init__(self)
-        
+
         self.pos = vec(x, y)
         self.color = color
         self.image = pg.Surface((w, h))
         self.image.fill(color)
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
-        
+
     def draw(self, screen):
         pg.draw.rect(screen, self.color, self.rect)
-        

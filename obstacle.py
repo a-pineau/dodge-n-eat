@@ -7,11 +7,12 @@ import pygame as pg
 import random
 import numpy as np
 
-from math import (cos, degrees, sin, tan, acos, 
-                  atan, atan2, pi, radians, sqrt)
+from math import cos, degrees, sin, tan, acos, atan, atan2, pi, radians, sqrt
 from itertools import cycle
 import constants as const
+
 vec = pg.math.Vector2
+
 
 class Obstacle(pg.sprite.Sprite):
     def __init__(self, game, x, y, w, h, color=None, vel=vec(0, 0)):
@@ -25,7 +26,7 @@ class Obstacle(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
         self.old_rect = self.rect.copy()
-        
+
     def update(self) -> None:
         if self.vel != vec(0, 0):
             # Old frame rect
@@ -58,12 +59,10 @@ class Obstacle(pg.sprite.Sprite):
                 self.pos.y = self.rect.centery
                 self.vel.y *= -1
 
+
 def main():
     pass
 
+
 if __name__ == "__main__":
     main()
-
-
-
-
