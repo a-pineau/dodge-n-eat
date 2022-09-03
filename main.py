@@ -5,10 +5,6 @@ MAX_N_GAMES = 60_000
 
 
 def train():
-    sum_scores = 0
-    sum_rewards = 0
-    mean_rewards = []
-    mean_scores = []
     game = GameAI(human=False, grid=False)
     agent = game.agent
 
@@ -43,7 +39,7 @@ def train():
         game.draw()
 
     # plotting
-    plot(mean_scores, mean_rewards, "results.png")
+    plot(game.mean_scores, game.mean_rewards, "results.png")
 
 
 if __name__ == "__main__":
