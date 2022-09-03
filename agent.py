@@ -52,8 +52,8 @@ class Agent(pg.sprite.Sprite):
     def place(self):
         self.dangerous_locations = set()
 
-        x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 2 
-        y = const.PLAY_HEIGHT - self.size // 2
+        x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 4 
+        y = const.PLAY_HEIGHT // 2
 
         self.pos = vec(x, y)
         self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
