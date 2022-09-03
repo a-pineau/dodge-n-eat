@@ -7,40 +7,40 @@ MAX_N_GAMES = 60_000
 def train():
     sum_scores = 0
     sum_rewards = 0
-    highest_score = 0
     mean_rewards = []
     mean_scores = []
-    game = GameAI(human=False, grid=True)
+    game = GameAI(human=False, grid=False)
+    agent = game.agent
 
     while game.running:
-        if game.agent.n_games > MAX_N_GAMES:
+        if game.n_games > MAX_N_GAMES:
             break
 
         # get old state
-        state = game.agent.get_state()
+        state = game.get_state()
         # get move (exploration or exploitation)
-        final_move = game.agent.get_action(state)
+        action = agent.get_action(state)
         # play game and get new state
-        reward, done, score = game.play_step(final_move)
-        new_state = game.agent.get_state()
-        sum_rewards += reward
+        reward, done, score = game.play_step(action)
+        new_state = game.get_state()
+        game.sum_rewards += reward
         # train short memory
-        game.agent.train_short_memory(state, final_move, reward, new_state, done)
+        agent.replay_short(state, action, reward, new_state, done)
         # remember
-        game.agent.remember(state, final_move, reward, new_state, done)
+        agent.remember(state, action, reward, new_state, done)
 
         if done:
             game.agent.last_decision = game.agent.decision
-            game.agent.n_games += 1
-            game.agent.train_long_memory()
+            game.n_games += 1
+            game.agent.replay_long()
             game.reset()
 
-            sum_scores += score
-            mean_scores.append(sum_scores / game.agent.n_games)
-            mean_rewards.append(sum_rewards / game.agent.n_games)
+            game.sum_scores += score
+            game.mean_scores.append(game.sum_scores / game.n_games)
+            game.mean_rewards.append(game.sum_rewards / game.n_games)
 
         # displaying game
-        game.display(mean_scores)
+        game.draw()
 
     # plotting
     plot(mean_scores, mean_rewards, "results.png")

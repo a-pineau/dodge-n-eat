@@ -6,9 +6,8 @@ from tarfile import BLOCKSIZE
 import numpy as np
 import pygame as pg
 
-from itertools import cycle
 from agent import Agent
-from obstacle import Obstacle
+from block import Block
 from helper import message, distance
 import constants as const
 
@@ -40,61 +39,60 @@ class GameAI:
         pg.display.set_caption(const.TITLE)
 
         self.running = True
+        self.n_games = 0
         self.n_frames_threshold = 0
         self.score = 0
         self.highest_score = 0
+        self.sum_scores = 0
+        self.sum_rewards = 0
+        self.mean_scores = [0]
+        self.mean_rewards = [0]
         self.reward_episode = 0
-        self.info_area = Block(
-            const.INFO_WIDTH // 2,
-            const.INFO_HEIGHT // 2,
-            const.INFO_WIDTH,
-            const.INFO_HEIGHT,
-            const.BACKGROUND_COLOR,
-        )
 
         self.enemies = [
-            Block(
-                (const.INFO_WIDTH + const.PLAY_WIDTH) / 3,
-                const.PLAY_HEIGHT // 2,
-                const.BLOCK_SIZE * 1,
-                const.BLOCK_SIZE * 11,
-            ),
+            # Block(
+            #     (const.INFO_WIDTH + const.PLAY_WIDTH) / 3,
+            #     const.PLAY_HEIGHT // 2,
+            #     const.BLOCK_SIZE * 1,
+            #     const.BLOCK_SIZE * 11,
+            # ),
         ]
-
-        self.agent = Agent(self)
-        self.food = Food(self)
+        self.agent = Agent(
+            const.X_AGENT,
+            const.Y_AGENT,
+            const.BLOCK_SIZE,
+            const.BLOCK_SIZE,
+            pg.Color("Blue"),
+            self,
+        )
+        self.food = Block(0, 0, const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Green"))
+        self.place_food()
         self.distance_food = distance(self.agent.pos, self.food.pos)
 
-    @staticmethod
-    def set_global_seed(seed: int) -> None:
-        """
-        Sets random seed into PyTorch, numpy and random.
+    ####### Methods #######
 
-        Args:
-            seed: random seed
-        """
+    def place_food(self):
+        idx_x = random.randint(
+            1, ((const.PLAY_WIDTH - const.INFO_WIDTH) // const.BLOCK_SIZE) - 1
+        )
+        idx_y = random.randint(1, (const.PLAY_HEIGHT // const.BLOCK_SIZE) - 1)
+        x = const.INFO_WIDTH + idx_x * const.BLOCK_SIZE
+        y = idx_y * const.BLOCK_SIZE
 
-        try:
-            import torch
-        except ImportError:
-            print("Module PyTorch cannot be imported")
-            pass
-        else:
-            torch.manual_seed(seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+        self.food.pos = vec(x, y)
+        self.food.rect.center = self.food.pos
 
-        random.seed(seed)
-        np.random.seed(seed)
+        # Checking for potential collisions with other entities
+        obstacles = [enemy.rect for enemy in self.enemies] + [self.agent.rect]
+        if self.food.rect.collidelist(obstacles) != -1:
+            self.place_food()
 
     def reset(self):
         self.n_frames_threshold = 0
         self.score = 0
         self.reward_episode = 0
         self.agent.place()
-        self.food.place()
+        self.place_food()
 
     def play_step(self, action):
         self.n_frames_threshold += 1
@@ -106,6 +104,26 @@ class GameAI:
         reward, game_over = self.get_reward()
         self.reward_episode += reward
         return reward, game_over, self.score
+
+    def get_state(self) -> np.array:
+        return np.array(
+            [
+                # current direction
+                self.agent.direction == "right",
+                self.agent.direction == "left",
+                self.agent.direction == "down",
+                self.agent.direction == "up",
+                # food location
+                self.agent.rect.right <= self.food.rect.left,  # food is right
+                self.agent.rect.left >= self.food.rect.right,  # food is left
+                self.agent.rect.bottom <= self.food.rect.top,  # food is bottom
+                self.agent.rect.top >= self.food.rect.bottom,  # food is up
+                # dangers
+                self.agent.enemy_danger(),
+                self.agent.wall_collision(offset=const.BLOCK_SIZE),
+            ],
+            dtype=int,
+        )
 
     def get_reward(self) -> tuple:
         game_over = False
@@ -140,7 +158,7 @@ class GameAI:
             reward = REWARD_EAT
             self.score += 1
             self.n_frames_threshold = 0
-            self.food.place()
+            self.place_food()
 
         return reward, game_over
 
@@ -151,40 +169,44 @@ class GameAI:
             if event.type == pg.KEYDOWN and event.key == pg.K_q:
                 self.running = False
 
-    def display(self, mean_scores):
+    def draw(self):
+        """TODO"""
         self.screen.fill(const.BACKGROUND_COLOR)
+        self.draw_entities()
+        if self.grid:
+            self.draw_grid()
+        self.draw_infos()
 
-        # Drawing blocks
+        pg.display.flip()
+        self.clock.tick(const.FPS)
+
+    def draw_entities(self):
+        """TODO"""
         for enemy in self.enemies:
             enemy.draw(self.screen)
 
         pg.draw.rect(self.screen, self.agent.color, self.agent.rect)
         pg.draw.rect(self.screen, self.food.color, self.food.rect)
 
-        # Drawing grid
-        if self.grid:
-            for i in range(1, const.PLAY_WIDTH // const.BLOCK_SIZE):
-                # horizontal lines
-                start_h = const.INFO_WIDTH + const.BLOCK_SIZE * i, 0
-                end_h = const.INFO_WIDTH + const.BLOCK_SIZE * i, const.PLAY_HEIGHT
+    def draw_grid(self):
+        """TODO"""
+        for i in range(1, const.PLAY_WIDTH // const.BLOCK_SIZE):
+            # vertical lines
+            p_v1 = const.INFO_WIDTH + const.BLOCK_SIZE * i, 0
+            p_v2 = const.INFO_WIDTH + const.BLOCK_SIZE * i, const.PLAY_HEIGHT
 
-                # vertical lines
-                start_v = 0, const.BLOCK_SIZE * i
-                end_v = const.PLAY_WIDTH, const.BLOCK_SIZE * i
+            # horizontal lines
+            p_h1 = 0, const.BLOCK_SIZE * i
+            p_h2 = const.PLAY_WIDTH, const.BLOCK_SIZE * i
 
-                pg.draw.line(self.screen, const.GRID_COLOR, start_h, end_h)
-                pg.draw.line(self.screen, const.GRID_COLOR, start_v, end_v)
+            pg.draw.line(self.screen, const.GRID_COLOR, p_v1, p_v2)
+            pg.draw.line(self.screen, const.GRID_COLOR, p_h1, p_h2)
 
-        # Infos texts
-        self.info_area.draw(self.screen)
+    def draw_infos(self):
+        """Draws game informations"""
 
         if self.score > self.highest_score:
             self.highest_score = self.score
-
-        try:
-            mean_score = round(mean_scores[-1], 1)
-        except IndexError:
-            mean_score = 0.0
 
         perc_exploration = (
             self.agent.n_exploration
@@ -199,11 +221,12 @@ class GameAI:
         perc_threshold = int((self.n_frames_threshold / MAX_FRAME) * 100)
 
         infos = [
-            f"Game: {self.agent.n_games}",
+            f"Game: {self.n_games}",
             f"Reward game: {round(self.reward_episode, 1)}",
+            f"Mean reward: {round(self.mean_rewards[-1], 1)}",
             f"Score: {self.score}",
             f"Highest score: {self.highest_score}",
-            f"Mean score: {mean_score}",
+            f"Mean score: {round(self.mean_scores[-1], 1)}",
             f"Initial Epsilon: {self.agent.max_epsilon}",
             f"Epsilon: {round(self.agent.epsilon, 4)}",
             f"Exploration: {round(perc_exploration, 3)}%",
@@ -227,53 +250,39 @@ class GameAI:
         # sep line
         pg.draw.line(
             self.screen,
-            pg.Color("White"),
+            const.SEP_LINE_COLOR,
             (const.INFO_WIDTH, 0),
             (const.INFO_WIDTH, const.INFO_HEIGHT),
         )
 
-        pg.display.flip()
-        self.clock.tick(const.FPS)
+
+def set_global_seed(seed: int) -> None:
+    """
+    Sets random seed into PyTorch, numpy and random.
+
+    Args:
+        seed: random seed
+    """
+
+    try:
+        import torch
+    except ImportError:
+        print("Module PyTorch cannot be imported")
+        pass
+    else:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+    random.seed(seed)
+    np.random.seed(seed)
 
 
-class Food(pg.sprite.Sprite):
-    def __init__(self, game):
-        pg.sprite.Sprite.__init__(self)
-        self.game = game
-        self.size = const.BLOCK_SIZE
-        self.color = pg.Color("Green")
-        self.place()
-
-    def place(self):
-        idx_x = random.randint(
-            1, ((const.PLAY_WIDTH - const.INFO_WIDTH) // const.BLOCK_SIZE) - 1
-        )
-        idx_y = random.randint(1, (const.PLAY_HEIGHT // const.BLOCK_SIZE) - 1)
-        x = const.INFO_WIDTH + idx_x * const.BLOCK_SIZE
-        y = idx_y * const.BLOCK_SIZE
-
-        self.pos = vec(x, y)
-        self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
-
-        # Checking for potential collisions with other elements
-        obstacles = [enemy.rect for enemy in self.game.enemies] + [self.game.agent.rect]
-        collision_list = self.rect.collidelist(obstacles)
-
-        # -1 is the return default value given by Pygame for the collidelist method if no collision found
-        if collision_list != -1:
-            self.place()
+def main():
+    pass
 
 
-class Block(pg.sprite.Sprite):
-    def __init__(self, x, y, w, h, color=pg.Color("Red")):
-        pg.sprite.Sprite.__init__(self)
-
-        self.pos = vec(x, y)
-        self.color = color
-        self.image = pg.Surface((w, h))
-        self.image.fill(color)
-        self.rect = self.image.get_rect()
-        self.rect.center = self.pos
-
-    def draw(self, screen):
-        pg.draw.rect(screen, self.color, self.rect)
+if __name__ == "__main__":
+    main()

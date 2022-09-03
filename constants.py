@@ -4,7 +4,7 @@ import pygame as pg
 vec = pg.math.Vector2
 
 # Main window
-TITLE = "dodge-N-eat"
+TITLE = "dodgeNeat-PyTorch"
 INFO_WIDTH = 300
 INFO_HEIGHT = 600
 PLAY_WIDTH = INFO_WIDTH + 800
@@ -20,9 +20,12 @@ SNAP_FOLDER = os.path.join(FILE_DIR, "../snapshots")
 # Colors
 GRID_COLOR = (40, 40, 40)
 BACKGROUND_COLOR = (30, 30, 30)
+SEP_LINE_COLOR = (60, 60, 60)
 INFOS_COLOR = (255, 255, 255)
 
 # Agent
+X_AGENT = (PLAY_WIDTH + INFO_WIDTH) // 2
+Y_AGENT = PLAY_HEIGHT // 1.5
 AGENT_X_SPEED = BLOCK_SIZE // 2
 AGENT_Y_SPEED = BLOCK_SIZE // 2
 
