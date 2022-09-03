@@ -5,8 +5,8 @@ import numpy as np
 import constants as const
 
 from collections import deque
+from block import Block
 from model import Linear_QNet, QTrainer
-from helper import distance
 
 vec = pg.math.Vector2
 
@@ -15,42 +15,51 @@ BATCH_SIZE = 1000
 N_INPUTS = 10
 N_HIDDEN = 256
 N_OUTPUTS = 4
-LR = 0.001
+LEARNING_RATE = 0.001
 DECAY = True
 
+EPSILON = 0.2
+MAX_EPSILON = EPSILON
+MIN_EPSILON = 0.001
+DECAY = 0.01
+DISCOUNT_FACTOR = 0.9
 
-class Agent(pg.sprite.Sprite):
-    # -----------
-    def __init__(self, game, epsilon_decay=DECAY):
-        pg.sprite.Sprite.__init__(self)
+MOVES = {0: "right", 1: "left", 2: "down", 3: "up"}
+
+
+class Agent(Block):
+    def __init__(self, x, y, w, h, color, game, epsilon_decay=DECAY):
+        super().__init__(x, h, w, h, color)
         self.game = game
         self.epsilon_decay = epsilon_decay
-        self.size = const.BLOCK_SIZE
-        self.vel = vec(0, 0)
         self.direction = None
         self.decision = None
         self.last_decision = None
-        self.reset_ok = False
         self.color = pg.Color("Blue")
         self.place()
 
         # DQN
-        self.n_games = 0
         self.n_exploration = 0
         self.n_exploitation = 0
+<<<<<<< HEAD
         self.epsilon = 0.1
         self.max_epsilon = self.epsilon
         self.min_epsilon = 0.001
         self.decay = 0.01
         self.gamma = 0.9
+=======
+        self.epsilon = EPSILON
+        self.max_epsilon = MAX_EPSILON
+>>>>>>> xpanding_window
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(
             input_size=N_INPUTS, hidden_size=N_HIDDEN, output_size=N_OUTPUTS
         )
-        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        self.trainer = QTrainer(self.model, lr=LEARNING_RATE, gamma=DISCOUNT_FACTOR)
 
     def place(self):
         self.dangerous_locations = set()
+<<<<<<< HEAD
 
         x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 4 
         y = const.PLAY_HEIGHT // 2
@@ -63,6 +72,10 @@ class Agent(pg.sprite.Sprite):
             distance(self.pos, enemy.pos) for enemy in self.game.enemies
         ]
         return min(distances_enemies), distances_enemies.index(min(distances_enemies))
+=======
+        self.pos = vec(const.X_AGENT, const.Y_AGENT)
+        self.rect.center = self.pos
+>>>>>>> xpanding_window
 
     def wall_collision(self, offset):
         return (
@@ -100,26 +113,6 @@ class Agent(pg.sprite.Sprite):
     def food_collision(self):
         return self.rect.colliderect(self.game.food.rect)
 
-    def get_state(self) -> np.array:
-        return np.array(
-            [
-                # current direction
-                self.direction == "right",
-                self.direction == "left",
-                self.direction == "down",
-                self.direction == "up",
-                # food location
-                self.rect.right <= self.game.food.rect.left,  # food is right
-                self.rect.left >= self.game.food.rect.right,  # food is left
-                self.rect.bottom <= self.game.food.rect.top,  # food is bottom
-                self.rect.top >= self.game.food.rect.bottom,  # food is up
-                # dangers
-                self.enemy_danger(),
-                self.wall_collision(offset=const.BLOCK_SIZE),
-            ],
-            dtype=int,
-        )
-
     def get_action(self, state):
         final_move = [0] * N_OUTPUTS
         random_number = random.random()
@@ -127,38 +120,37 @@ class Agent(pg.sprite.Sprite):
         if random_number <= self.epsilon:
             self.decision = "Exploration"
             self.n_exploration += 1
-            move = random.randint(0, N_OUTPUTS - 1)
+            action = random.randint(0, N_OUTPUTS - 1)
         else:
             self.decision = "Exploitation"
             self.n_exploitation += 1
             state_0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state_0)
-            move = torch.argmax(prediction).item()  # returns index of max value
+            action = torch.argmax(prediction).item()  # returns index of max value
 
-        final_move[move] = 1
         if self.epsilon_decay:
-            self.epsilon = self.min_epsilon + (
-                self.max_epsilon - self.min_epsilon
-            ) * np.exp(-self.decay * self.n_games)
+            self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(
+                -DECAY * self.game.n_games
+            )
 
+        final_move[action] = 1
         return final_move
 
-    def train_long_memory(self):
+    def remember(self, state, action, reward, next_state, done):
+        # will pop left if MAX_MEMORY is reached
+        self.memory.append((state, action, reward, next_state, done))
+
+    def replay_short(self, state, action, reward, next_state, done):
+        self.trainer.train_step(state, action, reward, next_state, done)
+
+    def replay_long(self):
         if len(self.memory) > BATCH_SIZE:
-            # returns list of tuples
             mini_sample = random.sample(self.memory, BATCH_SIZE)
         else:
             mini_sample = self.memory
 
         states, actions, rewards, next_states, dones = zip(*mini_sample)
         self.trainer.train_step(states, actions, rewards, next_states, dones)
-
-    def train_short_memory(self, state, action, reward, next_state, done):
-        self.trainer.train_step(state, action, reward, next_state, done)
-
-    def remember(self, state, action, reward, next_state, done):
-        # will pop left if MAX_MEMORY is reached
-        self.memory.append((state, action, reward, next_state, done))
 
     def update(self, action):
         # Tests only

@@ -6,9 +6,8 @@ from tarfile import BLOCKSIZE
 import numpy as np
 import pygame as pg
 
-from itertools import cycle
 from agent import Agent
-from obstacle import Obstacle
+from block import Block
 from helper import message, distance
 import constants as const
 
@@ -24,9 +23,9 @@ REWARD_CLOSE_WALL = 5
 REWARD_CLOSE_FOOD = 1
 REWARD_EAT = 10
 
-PENALTY_WANDER = -100
+PENALTY_WANDER = -1
 PENALTY_COLLISION = -10
-PENALTY_FAR_FOOD = -2
+PENALTY_FAR_FOOD = -0.1
 
 
 class GameAI:
@@ -40,9 +39,14 @@ class GameAI:
         pg.display.set_caption(const.TITLE)
 
         self.running = True
+        self.n_games = 0
         self.n_frames_threshold = 0
         self.score = 0
         self.highest_score = 0
+        self.sum_scores = 0
+        self.sum_rewards = 0
+        self.mean_scores = [0]
+        self.mean_rewards = [0]
         self.reward_episode = 0
         self.info_area = Block(
             const.INFO_WIDTH // 2,
@@ -54,21 +58,15 @@ class GameAI:
 
         self.enemies = [
             # Block(
-            #     (const.INFO_WIDTH + const.PLAY_WIDTH) / 2,
+            #     (const.INFO_WIDTH + const.PLAY_WIDTH) / 3,
             #     const.PLAY_HEIGHT // 2,
-            #     const.BLOCK_SIZE * 12,
-            #     const.BLOCK_SIZE,
+            #     const.BLOCK_SIZE * 1,
+            #     const.BLOCK_SIZE * 11,
             # ),
-            Block(
-                (const.INFO_WIDTH + const.PLAY_WIDTH) / 2,
-                const.PLAY_HEIGHT // 2,
-                const.BLOCK_SIZE,
-                const.BLOCK_SIZE * 12,
-            ),
         ]
 
         self.agent = Agent(self)
-        self.food = Food(self)
+        self.food = Block(0, 0, const.BLOCK_SIZE, const.BLOCK_SIZE, pg.Color("Red"))
         self.distance_food = distance(self.agent.pos, self.food.pos)
 
     @staticmethod
@@ -94,6 +92,25 @@ class GameAI:
 
         random.seed(seed)
         np.random.seed(seed)
+        
+    def place(self):
+        idx_x = random.randint(
+            1, ((const.PLAY_WIDTH - const.INFO_WIDTH) // const.BLOCK_SIZE) - 1
+        )
+        idx_y = random.randint(1, (const.PLAY_HEIGHT // const.BLOCK_SIZE) - 1)
+        x = const.INFO_WIDTH + idx_x * const.BLOCK_SIZE
+        y = idx_y * const.BLOCK_SIZE
+
+        self.pos = vec(x, y)
+        self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
+
+        # Checking for potential collisions with other elements
+        obstacles = [enemy.rect for enemy in self.game.enemies] + [self.game.agent.rect]
+        collision_list = self.rect.collidelist(obstacles)
+
+        # -1 is the return default value given by Pygame for the collidelist method if no collision found
+        if collision_list != -1:
+            self.place()
 
     def reset(self):
         self.n_frames_threshold = 0
@@ -112,6 +129,26 @@ class GameAI:
         reward, game_over = self.get_reward()
         self.reward_episode += reward
         return reward, game_over, self.score
+    
+    def get_state(self) -> np.array:
+        return np.array(
+            [
+                # current direction
+                self.agent.direction == "right",
+                self.agent.direction == "left",
+                self.agent.direction == "down",
+                self.agent.direction == "up",
+                # food location
+                self.agent.rect.right <= self.food.rect.left,  # food is right
+                self.agent.rect.left >= self.food.rect.right,  # food is left
+                self.agent.rect.bottom <= self.food.rect.top,  # food is bottom
+                self.agent.rect.top >= self.food.rect.bottom,  # food is up
+                # dangers
+                self.agent.enemy_danger(),
+                self.agent.wall_collision(offset=const.BLOCK_SIZE),
+            ],
+            dtype=int,
+        )
 
     def get_reward(self) -> tuple:
         game_over = False
@@ -139,7 +176,7 @@ class GameAI:
                 self.agent.dangerous_locations.add(self.agent.rect.center)
                 reward = 1
             else:
-                reward = -5
+                reward = -1
 
         # checking if eat:
         if self.agent.food_collision():
@@ -156,43 +193,46 @@ class GameAI:
                 self.running = False
             if event.type == pg.KEYDOWN and event.key == pg.K_q:
                 self.running = False
-
-    def display(self, mean_scores, mean_rewards):
+                
+    def draw(self):
+        """TODO"""
         self.screen.fill(const.BACKGROUND_COLOR)
-
-        # Drawing blocks
+        self.draw_entities()
+        if self.grid:
+            self.draw_grid()    
+        self.draw_infos()
+        
+        pg.display.flip()
+        self.clock.tick(const.FPS)
+        
+    def draw_entities(self):
+        """TODO"""
         for enemy in self.enemies:
             enemy.draw(self.screen)
 
         pg.draw.rect(self.screen, self.agent.color, self.agent.rect)
         pg.draw.rect(self.screen, self.food.color, self.food.rect)
+        
+    def draw_grid(self):
+        """TODO"""
+        for i in range(1, const.PLAY_WIDTH // const.BLOCK_SIZE):
+            # vertical lines
+            p_v1 = const.INFO_WIDTH + const.BLOCK_SIZE * i, 0
+            p_v2 = const.INFO_WIDTH + const.BLOCK_SIZE * i, const.PLAY_HEIGHT
 
-        # Drawing grid
-        if self.grid:
-            for i in range(1, const.PLAY_WIDTH // const.BLOCK_SIZE):
-                # horizontal lines
-                start_h = const.INFO_WIDTH + const.BLOCK_SIZE * i, 0
-                end_h = const.INFO_WIDTH + const.BLOCK_SIZE * i, const.PLAY_HEIGHT
+            # horizontal lines
+            p_h1 = 0, const.BLOCK_SIZE * i
+            p_h2 = const.PLAY_WIDTH, const.BLOCK_SIZE * i
 
-                # vertical lines
-                start_v = 0, const.BLOCK_SIZE * i
-                end_v = const.PLAY_WIDTH, const.BLOCK_SIZE * i
-
-                pg.draw.line(self.screen, const.GRID_COLOR, start_h, end_h)
-                pg.draw.line(self.screen, const.GRID_COLOR, start_v, end_v)
-
+            pg.draw.line(self.screen, const.GRID_COLOR, p_v1, p_v2)
+            pg.draw.line(self.screen, const.GRID_COLOR, p_h1, p_h2)
+            
+    def draw_infos(self):
         # Infos texts
         self.info_area.draw(self.screen)
 
         if self.score > self.highest_score:
             self.highest_score = self.score
-
-        try:
-            mean_score = round(mean_scores[-1], 1)
-            mean_reward = round(mean_rewards[-1], 1)
-        except IndexError:
-            mean_score = 0.0
-            mean_reward = 0.0
 
         perc_exploration = (
             self.agent.n_exploration
@@ -207,17 +247,17 @@ class GameAI:
         perc_threshold = int((self.n_frames_threshold / MAX_FRAME) * 100)
 
         infos = [
-            f"Game: {self.agent.n_games}",
+            f"Game: {self.n_games}",
             f"Reward game: {round(self.reward_episode, 1)}",
-            f"Mean reward: {round(mean_reward, 1)}",
+            f"Mean reward: {round(self.mean_rewards[-1], 1)}",
             f"Score: {self.score}",
             f"Highest score: {self.highest_score}",
-            f"Mean score: {mean_score}",
+            f"Mean score: {round(self.mean_scores[-1], 1)}",
             f"Initial Epsilon: {self.agent.max_epsilon}",
             f"Epsilon: {round(self.agent.epsilon, 4)}",
             f"Exploration: {round(perc_exploration, 3)}%",
             f"Exploitation: {round(perc_exploitation, 3)}%",
-            f"Done decision: {self.agent.last_decision}",
+            f"Last decision: {self.agent.last_decision}",
             f"Threshold: {perc_threshold}%",
             f"Time: {int(pg.time.get_ticks() / 1e3)}s",
             f"FPS: {int(self.clock.get_fps())}",
@@ -236,53 +276,10 @@ class GameAI:
         # sep line
         pg.draw.line(
             self.screen,
-            (60, 60, 60),
+            pg.Color("White"),
             (const.INFO_WIDTH, 0),
             (const.INFO_WIDTH, const.INFO_HEIGHT),
         )
 
-        pg.display.flip()
-        self.clock.tick(const.FPS)
 
 
-class Food(pg.sprite.Sprite):
-    def __init__(self, game):
-        pg.sprite.Sprite.__init__(self)
-        self.game = game
-        self.size = const.BLOCK_SIZE
-        self.color = pg.Color("Green")
-        self.place()
-
-    def place(self):
-        idx_x = random.randint(
-            1, ((const.PLAY_WIDTH - const.INFO_WIDTH) // const.BLOCK_SIZE) - 1
-        )
-        idx_y = random.randint(1, (const.PLAY_HEIGHT // const.BLOCK_SIZE) - 1)
-        x = const.INFO_WIDTH + idx_x * const.BLOCK_SIZE
-        y = idx_y * const.BLOCK_SIZE
-
-        self.pos = vec(x, y)
-        self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
-
-        # Checking for potential collisions with other elements
-        obstacles = [enemy.rect for enemy in self.game.enemies] + [self.game.agent.rect]
-        collision_list = self.rect.collidelist(obstacles)
-
-        # -1 is the return default value given by Pygame for the collidelist method if no collision found
-        if collision_list != -1:
-            self.place()
-
-
-class Block(pg.sprite.Sprite):
-    def __init__(self, x, y, w, h, color=pg.Color("Red")):
-        pg.sprite.Sprite.__init__(self)
-
-        self.pos = vec(x, y)
-        self.color = color
-        self.image = pg.Surface((w, h))
-        self.image.fill(color)
-        self.rect = self.image.get_rect()
-        self.rect.center = self.pos
-
-    def draw(self, screen):
-        pg.draw.rect(screen, self.color, self.rect)

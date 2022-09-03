@@ -1,49 +1,44 @@
 from game import GameAI
 from helper import plot
 
-MAX_N_GAMES = 60_000
-
 
 def train():
-    sum_scores = 0
-    sum_rewards = 0
-    highest_score = 0
-    mean_rewards = []
-    mean_scores = []
-    game = GameAI(human=False, grid=False)
-
+    game = GameAI(model_type="pytorch", human=True, grid=True)
+    agent = game.agent
+    
     while game.running:
-        if game.agent.n_games > MAX_N_GAMES:
-            break
-
         # get old state
-        state = game.agent.get_state()
+        prev_state = game.get_state()
         # get move (exploration or exploitation)
-        final_move = game.agent.get_action(state)
+        action = agent.perform(prev_state)
         # play game and get new state
-        reward, done, score = game.play_step(final_move)
-        new_state = game.agent.get_state()
-        sum_rewards += reward
-        # train short memory
-        game.agent.train_short_memory(state, final_move, reward, new_state, done)
+        reward, done = game.play_step(action)
+        game.reward_episode += reward
+        next_state = game.get_state()
         # remember
-        game.agent.remember(state, final_move, reward, new_state, done)
+        agent.remember(prev_state, action, reward, next_state, done)
+        # replaying previous games
+        agent.replay()
 
         if done:
-            game.agent.last_decision = game.agent.decision
-            game.agent.n_games += 1
-            game.agent.train_long_memory()
+            if game.model.decay:
+                game.model.decay_epsilon()
+            game.n_games += 1
+            game.reward_episode = 0
+
+            game.sum_score += game.score
+            game.sum_reward += game.reward_episode
+
+            game.mean_rewards.append(game.sum_reward / game.n_games)
+            game.mean_scores.append(game.sum_score / game.n_games)
+            
             game.reset()
 
-            sum_scores += score
-            mean_scores.append(sum_scores / game.agent.n_games)
-            mean_rewards.append(sum_rewards / game.agent.n_games)
-
         # displaying game
-        game.display(mean_scores, mean_rewards)
+        game.draw()
 
     # plotting
-    plot(mean_scores, mean_rewards, "results.png")
+    plot(game.mean_scores, game.mean_rewards, "results.png")
 
 
 if __name__ == "__main__":
