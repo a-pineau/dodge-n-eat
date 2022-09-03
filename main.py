@@ -10,7 +10,7 @@ def train():
     highest_score = 0
     mean_rewards = []
     mean_scores = []
-    game = GameAI(human=False, grid=True)
+    game = GameAI(human=False, grid=False)
 
     while game.running:
         if game.agent.n_games > MAX_N_GAMES:
@@ -40,7 +40,7 @@ def train():
             mean_rewards.append(sum_rewards / game.agent.n_games)
 
         # displaying game
-        game.display(mean_scores)
+        game.display(mean_scores, mean_rewards)
 
     # plotting
     plot(mean_scores, mean_rewards, "results.png")

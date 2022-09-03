@@ -38,7 +38,7 @@ class Agent(pg.sprite.Sprite):
         self.n_games = 0
         self.n_exploration = 0
         self.n_exploitation = 0
-        self.epsilon = 0.3
+        self.epsilon = 0.1
         self.max_epsilon = self.epsilon
         self.min_epsilon = 0.001
         self.decay = 0.01
@@ -52,8 +52,8 @@ class Agent(pg.sprite.Sprite):
     def place(self):
         self.dangerous_locations = set()
 
-        x = 13 * const.BLOCK_SIZE - self.size // 2
-        y = 8 * const.BLOCK_SIZE - self.size // 2
+        x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 2 
+        y = const.PLAY_HEIGHT - self.size // 2
 
         self.pos = vec(x, y)
         self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)

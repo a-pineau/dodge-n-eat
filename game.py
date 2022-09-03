@@ -24,9 +24,9 @@ REWARD_CLOSE_WALL = 5
 REWARD_CLOSE_FOOD = 1
 REWARD_EAT = 10
 
-PENALTY_WANDER = -1
+PENALTY_WANDER = -100
 PENALTY_COLLISION = -10
-PENALTY_FAR_FOOD = -0.1
+PENALTY_FAR_FOOD = -2
 
 
 class GameAI:
@@ -53,11 +53,17 @@ class GameAI:
         )
 
         self.enemies = [
+            # Block(
+            #     (const.INFO_WIDTH + const.PLAY_WIDTH) / 2,
+            #     const.PLAY_HEIGHT // 2,
+            #     const.BLOCK_SIZE * 12,
+            #     const.BLOCK_SIZE,
+            # ),
             Block(
-                (const.INFO_WIDTH + const.PLAY_WIDTH) / 3,
+                (const.INFO_WIDTH + const.PLAY_WIDTH) / 2,
                 const.PLAY_HEIGHT // 2,
-                const.BLOCK_SIZE * 1,
-                const.BLOCK_SIZE * 11,
+                const.BLOCK_SIZE,
+                const.BLOCK_SIZE * 12,
             ),
         ]
 
@@ -133,7 +139,7 @@ class GameAI:
                 self.agent.dangerous_locations.add(self.agent.rect.center)
                 reward = 1
             else:
-                reward = -1
+                reward = -5
 
         # checking if eat:
         if self.agent.food_collision():
@@ -151,7 +157,7 @@ class GameAI:
             if event.type == pg.KEYDOWN and event.key == pg.K_q:
                 self.running = False
 
-    def display(self, mean_scores):
+    def display(self, mean_scores, mean_rewards):
         self.screen.fill(const.BACKGROUND_COLOR)
 
         # Drawing blocks
@@ -183,8 +189,10 @@ class GameAI:
 
         try:
             mean_score = round(mean_scores[-1], 1)
+            mean_reward = round(mean_rewards[-1], 1)
         except IndexError:
             mean_score = 0.0
+            mean_reward = 0.0
 
         perc_exploration = (
             self.agent.n_exploration
@@ -201,6 +209,7 @@ class GameAI:
         infos = [
             f"Game: {self.agent.n_games}",
             f"Reward game: {round(self.reward_episode, 1)}",
+            f"Mean reward: {round(mean_reward, 1)}",
             f"Score: {self.score}",
             f"Highest score: {self.highest_score}",
             f"Mean score: {mean_score}",
@@ -208,7 +217,7 @@ class GameAI:
             f"Epsilon: {round(self.agent.epsilon, 4)}",
             f"Exploration: {round(perc_exploration, 3)}%",
             f"Exploitation: {round(perc_exploitation, 3)}%",
-            f"Last decision: {self.agent.last_decision}",
+            f"Done decision: {self.agent.last_decision}",
             f"Threshold: {perc_threshold}%",
             f"Time: {int(pg.time.get_ticks() / 1e3)}s",
             f"FPS: {int(self.clock.get_fps())}",
@@ -227,7 +236,7 @@ class GameAI:
         # sep line
         pg.draw.line(
             self.screen,
-            pg.Color("White"),
+            (60, 60, 60),
             (const.INFO_WIDTH, 0),
             (const.INFO_WIDTH, const.INFO_HEIGHT),
         )
