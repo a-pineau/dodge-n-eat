@@ -39,18 +39,13 @@ class Agent(Block):
         self.place()
 
         # DQN
+        self.epsilon = EPSILON
+        self.max_epsilon = self.epsilon
+        self.decay = DECAY
         self.n_exploration = 0
         self.n_exploitation = 0
-<<<<<<< HEAD
-        self.epsilon = 0.1
-        self.max_epsilon = self.epsilon
-        self.min_epsilon = 0.001
-        self.decay = 0.01
-        self.gamma = 0.9
-=======
         self.epsilon = EPSILON
         self.max_epsilon = MAX_EPSILON
->>>>>>> xpanding_window
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(
             input_size=N_INPUTS, hidden_size=N_HIDDEN, output_size=N_OUTPUTS
@@ -59,23 +54,12 @@ class Agent(Block):
 
     def place(self):
         self.dangerous_locations = set()
-<<<<<<< HEAD
 
         x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 4 
         y = const.PLAY_HEIGHT // 2
 
         self.pos = vec(x, y)
-        self.rect = pg.Rect(self.pos.x, self.pos.y, self.size, self.size)
-
-    def closest_enemy(self):
-        distances_enemies = [
-            distance(self.pos, enemy.pos) for enemy in self.game.enemies
-        ]
-        return min(distances_enemies), distances_enemies.index(min(distances_enemies))
-=======
-        self.pos = vec(const.X_AGENT, const.Y_AGENT)
         self.rect.center = self.pos
->>>>>>> xpanding_window
 
     def wall_collision(self, offset):
         return (

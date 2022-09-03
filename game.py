@@ -57,12 +57,13 @@ class GameAI:
         )
 
         self.enemies = [
-            # Block(
-            #     (const.INFO_WIDTH + const.PLAY_WIDTH) / 3,
-            #     const.PLAY_HEIGHT // 2,
-            #     const.BLOCK_SIZE * 1,
-            #     const.BLOCK_SIZE * 11,
-            # ),
+            Block(
+                (const.INFO_WIDTH + const.PLAY_WIDTH) / 2,
+                const.PLAY_HEIGHT // 2,
+                const.BLOCK_SIZE * 1,
+                const.BLOCK_SIZE * 11,
+                pg.Color("Red")
+            ),
         ]
 
         self.agent = Agent(self)
@@ -113,8 +114,8 @@ class GameAI:
             self.place()
 
     def reset(self):
-        self.n_frames_threshold = 0
         self.score = 0
+        self.n_frames_threshold = 0
         self.reward_episode = 0
         self.agent.place()
         self.food.place()
@@ -125,9 +126,9 @@ class GameAI:
         self.events()
         self.agent.update(action)
 
-        # returning corresponding values
         reward, game_over = self.get_reward()
         self.reward_episode += reward
+        
         return reward, game_over, self.score
     
     def get_state(self) -> np.array:

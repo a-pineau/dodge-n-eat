@@ -3,7 +3,7 @@ from helper import plot
 
 
 def train():
-    game = GameAI(model_type="pytorch", human=True, grid=True)
+    game = GameAI(human=False, grid=False)
     agent = game.agent
     
     while game.running:
