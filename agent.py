@@ -44,8 +44,6 @@ class Agent(Block):
         self.decay = DECAY
         self.n_exploration = 0
         self.n_exploitation = 0
-        self.epsilon = EPSILON
-        self.max_epsilon = MAX_EPSILON
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(
             input_size=N_INPUTS, hidden_size=N_HIDDEN, output_size=N_OUTPUTS

@@ -1,38 +1,39 @@
 from game import GameAI
 from helper import plot
 
+MAX_N_GAMES = 60_000
+
 
 def train():
     game = GameAI(human=False, grid=False)
     agent = game.agent
-    
+
     while game.running:
+        if game.n_games > MAX_N_GAMES:
+            break
+
         # get old state
-        prev_state = game.get_state()
+        state = game.get_state()
         # get move (exploration or exploitation)
-        action = agent.perform(prev_state)
+        action = agent.get_action(state)
         # play game and get new state
-        reward, done = game.play_step(action)
-        game.reward_episode += reward
-        next_state = game.get_state()
+        reward, done, score = game.play_step(action)
+        new_state = game.get_state()
+        game.sum_rewards += reward
+        # train short memory
+        agent.replay_short(state, action, reward, new_state, done)
         # remember
-        agent.remember(prev_state, action, reward, next_state, done)
-        # replaying previous games
-        agent.replay()
+        agent.remember(state, action, reward, new_state, done)
 
         if done:
-            if game.model.decay:
-                game.model.decay_epsilon()
+            game.agent.last_decision = game.agent.decision
             game.n_games += 1
-            game.reward_episode = 0
-
-            game.sum_score += game.score
-            game.sum_reward += game.reward_episode
-
-            game.mean_rewards.append(game.sum_reward / game.n_games)
-            game.mean_scores.append(game.sum_score / game.n_games)
-            
+            game.agent.replay_long()
             game.reset()
+
+            game.sum_scores += score
+            game.mean_scores.append(game.sum_scores / game.n_games)
+            game.mean_rewards.append(game.sum_rewards / game.n_games)
 
         # displaying game
         game.draw()
