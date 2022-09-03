@@ -39,7 +39,7 @@ def train():
         game.draw()
 
     # plotting
-    plot(game.mean_scores, game.mean_rewards, "results.png")
+    # plot(game.mean_scores, game.mean_rewards, "results.png")
 
 
 if __name__ == "__main__":
