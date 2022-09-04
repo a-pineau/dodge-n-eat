@@ -26,6 +26,9 @@ def train():
         agent.remember(state, action, reward, new_state, done)
 
         if done:
+            if agent.epsilon_decay:
+                agent.decay_epsilon()
+                
             game.agent.last_decision = game.agent.decision
             game.n_games += 1
             game.agent.replay_long()

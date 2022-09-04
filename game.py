@@ -50,13 +50,13 @@ class GameAI:
         self.reward_episode = 0
 
         self.enemies = [
-            Block(
-                (const.INFO_WIDTH + const.PLAY_WIDTH) / 2,
-                const.PLAY_HEIGHT // 2,
-                const.BLOCK_SIZE * 1,
-                const.BLOCK_SIZE * 11,
-                pg.Color("Red")
-            ),
+            # Block(
+            #     (const.INFO_WIDTH + const.PLAY_WIDTH) / 2,
+            #     const.PLAY_HEIGHT // 2,
+            #     const.BLOCK_SIZE * 1,
+            #     const.BLOCK_SIZE * 9,
+            #     pg.Color("Red")
+            # ),
         ]
         self.agent = Agent(
             const.X_AGENT,

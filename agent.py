@@ -53,7 +53,7 @@ class Agent(Block):
     def place(self):
         self.dangerous_locations = set()
 
-        x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 4 
+        x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 4
         y = const.PLAY_HEIGHT // 2
 
         self.pos = vec(x, y)
@@ -110,13 +110,13 @@ class Agent(Block):
             prediction = self.model(state_0)
             action = torch.argmax(prediction).item()  # returns index of max value
 
-        if self.epsilon_decay:
-            self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(
-                -DECAY * self.game.n_games
-            )
-
         final_move[action] = 1
         return final_move
+
+    def decay_epsilon(self):
+        self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(
+            -DECAY * self.game.n_games
+        )
 
     def remember(self, state, action, reward, next_state, done):
         # will pop left if MAX_MEMORY is reached
@@ -164,23 +164,7 @@ class Agent(Block):
                 self.direction = "down"
                 self.pos.y += const.AGENT_Y_SPEED
 
-            # if np.array_equal(action, [1, 0, 0, 0, 0]): # standing still
-            #     self.direction = "stand"
-            # if np.array_equal(action, [0, 1, 0, 0, 0]): # going right
-            #     self.direction = "right"
-            #     self.pos.x += const.AGENT_X_SPEED
-            # elif np.array_equal(action, [0, 0, 1, 0, 0]): # going left
-            #     self.direction = "left"
-            #     self.pos.x += -const.AGENT_X_SPEED
-            # elif np.array_equal(action, [0, 0, 0, 1, 0]): # going down
-            #     self.direction = "down"
-            #     self.pos.y += -const.AGENT_Y_SPEED
-            # elif np.array_equal(action, [0, 0, 0, 0, 1]): # going up
-            #     self.direction = "up"
-            #     self.pos.y += const.AGENT_Y_SPEED
-
         # Updating pos
-        # self.pos += self.vel
         self.rect.center = self.pos
 
 
