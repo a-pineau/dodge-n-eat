@@ -1,49 +1,54 @@
-from game import GameAI
-from helper import plot
-
-MAX_N_GAMES = 60_000
-
-
-def train():
-    game = GameAI(human=False, grid=False)
-    agent = game.agent
-
-    while game.running:
-        if game.n_games > MAX_N_GAMES:
-            break
-
-        # get old state
-        state = game.get_state()
-        # get move (exploration or exploitation)
-        action = agent.get_action(state)
-        # play game and get new state
-        reward, done, score = game.play_step(action)
-        new_state = game.get_state()
-        game.sum_rewards += reward
-        # train short memory
-        agent.replay_short(state, action, reward, new_state, done)
-        # remember
-        agent.remember(state, action, reward, new_state, done)
-
-        if done:
-            if agent.epsilon_decay:
-                agent.decay_epsilon()
-                
-            game.agent.last_decision = game.agent.decision
-            game.n_games += 1
-            game.agent.replay_long()
-            game.reset()
-
-            game.sum_scores += score
-            game.mean_scores.append(game.sum_scores / game.n_games)
-            game.mean_rewards.append(game.sum_rewards / game.n_games)
-
-        # displaying game
-        game.draw()
-
-    # plotting
-    # plot(game.mean_scores, game.mean_rewards, "results.png")
-
+import gym
+import numpy as np
+from agent import Agent
+from environment import Game
 
 if __name__ == "__main__":
-    train()
+    env = Game(human=False, grid=True, infos=False)
+    agent = Agent(
+        gamma=0.99,
+        epsilon=1.0,
+        batch_size=64,
+        n_actions=env.action_space,
+        eps_end=0.01,
+        input_dims=[env.state_space],
+        lr=0.001,
+    )
+
+    scores = []
+    eps_history = []
+    episode = 1
+
+    while env.running:
+        score = 0
+        done = False
+        state = env.reset()
+
+        while not done:
+            if not env.running:
+                break
+            
+            env.render()
+            action = agent.choose_action(state)
+            new_state, reward, done = env.step(action)
+            
+            score += reward
+            agent.store_transitions(state, action, reward, new_state, done)
+            agent.learn()
+
+            state = new_state
+            scores.append(score)
+            eps_history.append(agent.epsilon)
+
+
+        score = round(score, 1)
+        scores.append(score)
+        eps = round(agent.epsilon, 2)
+        eps_history.append(agent.epsilon)
+
+        avg_score = round(np.mean(scores[-100:]), 1)
+        episode += 1
+
+        print(
+            f"Episode: {episode}, score: {score}, average score: {avg_score}, epsilon: {eps}, last decision: {agent.last_decision}"
+        )

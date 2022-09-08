@@ -1,172 +1,125 @@
-import torch
-import random
-import pygame as pg
+import torch as T
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 import numpy as np
-import constants as const
-
-from collections import deque
-from block import Block
-from model import Linear_QNet, QTrainer
-
-vec = pg.math.Vector2
-
-MAX_MEMORY = 100_000  # Storing 100k max items in deque
-BATCH_SIZE = 1000
-N_INPUTS = 10
-N_HIDDEN = 256
-N_OUTPUTS = 4
-LEARNING_RATE = 0.001
-DECAY = True
-
-EPSILON = 0.2
-MAX_EPSILON = EPSILON
-MIN_EPSILON = 0.001
-DECAY = 0.01
-DISCOUNT_FACTOR = 0.9
-
-MOVES = {0: "right", 1: "left", 2: "down", 3: "up"}
 
 
-class Agent(Block):
-    def __init__(self, x, y, w, h, color, game, epsilon_decay=DECAY):
-        super().__init__(x, h, w, h, color)
-        self.game = game
-        self.epsilon_decay = epsilon_decay
-        self.direction = None
-        self.decision = None
+class DeepQNework(nn.Module):
+    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions) -> None:
+        super(DeepQNework, self).__init__()
+        self.input_dims = input_dims
+        self.fc1_dims = fc1_dims
+        self.fc2_dims = fc2_dims
+        self.n_actions = n_actions
+
+        # layers
+        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)  # inputs
+        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)  # hidden
+        self.fc3 = nn.Linear(self.fc2_dims, self.n_actions)  # outputs
+
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
+        self.loss = nn.MSELoss()
+        self.device = T.device("cuda:0" if T.cuda.is_available() else "cpu")
+        self.to(self.device)
+
+    def forward(self, state):
+        x = F.relu(self.fc1(state))
+        x = F.relu(self.fc2(x))
+        actions = self.fc3(x)
+
+        return actions
+
+
+class Agent:
+    def __init__(
+        self,
+        gamma,
+        epsilon,
+        lr,
+        input_dims,
+        batch_size,
+        n_actions,
+        max_mem_size=100_000,
+        eps_end=0.01,
+        eps_dec=1e-4,
+    ) -> None:
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.lr = lr
+        self.batch_size = batch_size
+        self.mem_cntr = 0
+        self.mem_size = max_mem_size
+        self.eps_min = eps_end
+        self.eps_dec = eps_dec
+        self.action_space = [i for i in range(n_actions)]
         self.last_decision = None
-        self.color = pg.Color("Blue")
-        self.place()
 
-        # DQN
-        self.epsilon = EPSILON
-        self.max_epsilon = self.epsilon
-        self.decay = DECAY
-        self.n_exploration = 0
-        self.n_exploitation = 0
-        self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = Linear_QNet(
-            input_size=N_INPUTS, hidden_size=N_HIDDEN, output_size=N_OUTPUTS
+        self.Q_eval = DeepQNework(
+            self.lr,
+            n_actions=n_actions,
+            input_dims=input_dims,
+            fc1_dims=256,
+            fc2_dims=256,
         )
-        self.trainer = QTrainer(self.model, lr=LEARNING_RATE, gamma=DISCOUNT_FACTOR)
+        
+        self.state_memory = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
+        self.new_state_memory = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
+        self.action_memory = np.zeros(self.mem_size, dtype=np.int32)
+        self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
+        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
 
-    def place(self):
-        self.dangerous_locations = set()
+    def store_transitions(self, state, action, reward, new_state, done):
+        index = self.mem_cntr % self.mem_size  # wrapping around
+        self.state_memory[index] = state
+        self.new_state_memory[index] = new_state
+        self.reward_memory[index] = reward
+        self.action_memory[index] = action
+        self.terminal_memory[index] = done
 
-        x = (const.PLAY_WIDTH + const.INFO_WIDTH) // 4
-        y = const.PLAY_HEIGHT // 2
+        self.mem_cntr += 1
 
-        self.pos = vec(x, y)
-        self.rect.center = self.pos
-
-    def wall_collision(self, offset):
-        return (
-            self.rect.left - offset < const.INFO_WIDTH
-            or self.rect.right + offset > const.PLAY_WIDTH
-            or self.rect.top - offset < 0
-            or self.rect.bottom + offset > const.PLAY_HEIGHT
-        )
-
-    def enemy_collision(self):
-        # If the agent is already colliding with an enemy, returns True directly
-        if pg.sprite.spritecollide(self, self.game.enemies, False):
-            return True
-
-    def enemy_danger(self):
-        offsets = [
-            (-1, -1),
-            (0, -1),
-            (1, -1),
-            (-1, 0),
-            (1, 0),
-            (-1, 1),
-            (0, -1),
-            (1, 1),
-        ]
-
-        for enemy in self.game.enemies:
-            for offset in offsets:
-                buffer_rect = self.rect.copy().move(offset)
-                if buffer_rect.colliderect(enemy.rect):
-                    return True
-
-        return False
-
-    def food_collision(self):
-        return self.rect.colliderect(self.game.food.rect)
-
-    def get_action(self, state):
-        final_move = [0] * N_OUTPUTS
-        random_number = random.random()
-
-        if random_number <= self.epsilon:
-            self.decision = "Exploration"
-            self.n_exploration += 1
-            action = random.randint(0, N_OUTPUTS - 1)
+    def choose_action(self, observation):
+        if np.random.random() > self.epsilon:
+            self.last_decision = "Exploitation"
+            state = T.tensor([observation]).to(self.Q_eval.device)
+            actions = self.Q_eval.forward(state)
+            action = T.argmax(actions).item()
         else:
-            self.decision = "Exploitation"
-            self.n_exploitation += 1
-            state_0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model(state_0)
-            action = torch.argmax(prediction).item()  # returns index of max value
+            self.last_decision = "Exploration"
+            action = np.random.choice(self.action_space)
 
-        final_move[action] = 1
-        return final_move
+        return action
 
-    def decay_epsilon(self):
-        self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(
-            -DECAY * self.game.n_games
-        )
+    def learn(self):
+        if self.mem_cntr < self.batch_size:
+            return None
 
-    def remember(self, state, action, reward, next_state, done):
-        # will pop left if MAX_MEMORY is reached
-        self.memory.append((state, action, reward, next_state, done))
+        self.Q_eval.optimizer.zero_grad()
 
-    def replay_short(self, state, action, reward, next_state, done):
-        self.trainer.train_step(state, action, reward, next_state, done)
+        max_mem = min(self.mem_cntr, self.mem_size)
+        batch = np.random.choice(max_mem, self.batch_size, replace=False)
+        batch_index = np.arange(self.batch_size, dtype=np.int32)
 
-    def replay_long(self):
-        if len(self.memory) > BATCH_SIZE:
-            mini_sample = random.sample(self.memory, BATCH_SIZE)
+        # np array -> pytorch tensor
+        state_batch = T.tensor(self.state_memory[batch]).to(self.Q_eval.device)
+        new_state_batch = T.tensor(self.new_state_memory[batch]).to(self.Q_eval.device)
+        reward_batch = T.tensor(self.reward_memory[batch]).to(self.Q_eval.device)
+        terminal_batch = T.tensor(self.terminal_memory[batch]).to(self.Q_eval.device)
+
+        action_batch = self.action_memory[batch]
+
+        q_eval = self.Q_eval.forward(state_batch)[batch_index, action_batch]
+        q_next = self.Q_eval.forward(new_state_batch)
+        q_next[terminal_batch] = 0.0
+
+        q_target = reward_batch + self.gamma * T.max(q_next, dim=1)[0]
+
+        loss = self.Q_eval.loss(q_target, q_eval).to(self.Q_eval.device)
+        loss.backward()
+        self.Q_eval.optimizer.step()
+
+        if self.epsilon > self.eps_min:
+            self.epsilon = self.epsilon - self.eps_dec
         else:
-            mini_sample = self.memory
-
-        states, actions, rewards, next_states, dones = zip(*mini_sample)
-        self.trainer.train_step(states, actions, rewards, next_states, dones)
-
-    def update(self, action):
-        # Tests only
-        if self.game.human:
-            keys = pg.key.get_pressed()  # Keyboard events
-            if keys[pg.K_RIGHT]:
-                self.direction = "right"
-                self.pos.x += const.AGENT_X_SPEED
-            elif keys[pg.K_LEFT]:
-                self.direction = "left"
-                self.pos.x += -const.AGENT_X_SPEED
-            elif keys[pg.K_UP]:
-                self.direction = "up"
-                self.pos.y += -const.AGENT_Y_SPEED
-            elif keys[pg.K_DOWN]:
-                self.direction = "down"
-                self.pos.y += const.AGENT_Y_SPEED
-        else:
-            if np.array_equal(action, [1, 0, 0, 0]):  # going right
-                self.direction = "right"
-                self.pos.x += const.AGENT_X_SPEED
-            elif np.array_equal(action, [0, 1, 0, 0]):  # going left
-                self.direction = "left"
-                self.pos.x += -const.AGENT_X_SPEED
-            elif np.array_equal(action, [0, 0, 1, 0]):  # going down
-                self.direction = "up"
-                self.pos.y += -const.AGENT_Y_SPEED
-            elif np.array_equal(action, [0, 0, 0, 1]):  # going up
-                self.direction = "down"
-                self.pos.y += const.AGENT_Y_SPEED
-
-        # Updating pos
-        self.rect.center = self.pos
-
-
-if __name__ == "__main__":
-    pass
+            self.epsilon = self.eps_min
